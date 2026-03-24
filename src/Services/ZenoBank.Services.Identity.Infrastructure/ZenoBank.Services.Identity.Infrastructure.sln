@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36804.6 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZenoBank.Services.Identity.Infrastructure", "ZenoBank.Services.Identity.Infrastructure.csproj", "{7492DC07-3B15-FFAA-0C17-BADC25454F9B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7492DC07-3B15-FFAA-0C17-BADC25454F9B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7492DC07-3B15-FFAA-0C17-BADC25454F9B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7492DC07-3B15-FFAA-0C17-BADC25454F9B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7492DC07-3B15-FFAA-0C17-BADC25454F9B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {774E9771-D206-4A39-8761-5123BCBD9F42}
+	EndGlobalSection
+EndGlobal

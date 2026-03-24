@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ZenoBank.Services.Identity.Application.Abstractions.Repositories;
 using ZenoBank.Services.Identity.Application.Abstractions.Services;
+using ZenoBank.Services.Identity.Infrastructure.Configurations;
 using ZenoBank.Services.Identity.Infrastructure.Persistence;
 using ZenoBank.Services.Identity.Infrastructure.Repositories;
 using ZenoBank.Services.Identity.Infrastructure.Services;
@@ -13,6 +14,8 @@ public static class ServiceRegistration
 {
     public static IServiceCollection AddIdentityInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
+
         services.AddDbContext<IdentityDbContext>(options =>
         {
             options.UseSqlServer(configuration.GetConnectionString("DefaultConnection"));

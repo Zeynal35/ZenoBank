@@ -1,6 +1,6 @@
 ﻿using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
 using ZenoBank.Services.Identity.Application.Abstractions.Services;
+using Microsoft.AspNetCore.Http;
 
 namespace ZenoBank.Services.Identity.Infrastructure.Services;
 

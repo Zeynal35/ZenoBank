@@ -9,4 +9,4 @@ public static class ServiceCollectionExtensions
         services.AddIdentityInfrastructure(configuration);
         return services;
     }
-}}
+}

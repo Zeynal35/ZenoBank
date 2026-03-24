@@ -3,6 +3,7 @@ using System.Net;
 using System.Text.Json;
 using ZenoBank.BuildingBlocks.Shared.Common.Exceptions;
 using ZenoBank.BuildingBlocks.Shared.Common.Responses;
+using ValidationException = ZenoBank.BuildingBlocks.Shared.Common.Exceptions.ValidationException;
 
 namespace ZenoBank.Services.Identity.API.Middlewares;
 
