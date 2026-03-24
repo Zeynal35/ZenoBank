@@ -1,0 +1,6 @@
+@ZenoBank.Services.Notification.API_HostAddress = http://localhost:5001
+
+GET {{ZenoBank.Services.Notification.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
