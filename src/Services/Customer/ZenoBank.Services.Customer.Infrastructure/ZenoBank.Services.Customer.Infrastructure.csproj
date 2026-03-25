@@ -1,22 +1,36 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.25" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.25">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.25" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.25">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.25" />
+		<PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.2.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.25" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.25">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.25" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.25">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\..\BuildingBlocks\ZenoBank.BuildingBlocks.Shared.Common\ZenoBank.BuildingBlocks.Shared.Common.csproj" />
+		<ProjectReference Include="..\..\..\BuildingBlocks\ZenoBank.BuildingBlocks.Shared.Contracts\ZenoBank.BuildingBlocks.Shared.Contracts.csproj" />
+		<ProjectReference Include="..\..\..\BuildingBlocks\ZenoBank.BuildingBlocks.Shared.Messaging\ZenoBank.BuildingBlocks.Shared.Messaging.csproj" />
+		<ProjectReference Include="..\ZenoBank.Services.Customer.Application\ZenoBank.Services.Customer.Application.csproj" />
+		<ProjectReference Include="..\ZenoBank.Services.Customer.Domain\ZenoBank.Services.Customer.Domain.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Folder Include="Configurations\" />
+	</ItemGroup>
 
 </Project>
