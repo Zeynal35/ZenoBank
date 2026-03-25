@@ -1,7 +1,8 @@
+using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
 using ZenoBank.Services.Identity.API.Extensions;
 using ZenoBank.Services.Identity.API.Middlewares;
 using ZenoBank.Services.Identity.Infrastructure.Configurations;
@@ -80,14 +81,16 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+    var seedUserOptions = scope.ServiceProvider.GetRequiredService<IOptions<SeedUserSettings>>();
+
     await dbContext.Database.MigrateAsync();
     await RoleSeeder.SeedAsync(dbContext);
+    await UserSeeder.SeedAsync(dbContext, seedUserOptions);
 }
 
 app.Run();

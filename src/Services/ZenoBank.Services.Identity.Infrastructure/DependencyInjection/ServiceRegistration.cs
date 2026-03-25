@@ -8,6 +8,7 @@ using ZenoBank.Services.Identity.Infrastructure.Persistence;
 using ZenoBank.Services.Identity.Infrastructure.Repositories;
 using ZenoBank.Services.Identity.Infrastructure.Services;
 
+
 namespace ZenoBank.Services.Identity.Infrastructure.DependencyInjection;
 
 public static class ServiceRegistration
@@ -15,6 +16,7 @@ public static class ServiceRegistration
     public static IServiceCollection AddIdentityInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
+        services.Configure<SeedUserSettings>(configuration.GetSection(SeedUserSettings.SectionName));
 
         services.AddDbContext<IdentityDbContext>(options =>
         {
