@@ -19,11 +19,17 @@ public class UserRepository : IUserRepository
         await _context.Users.AddAsync(user, cancellationToken);
     }
 
+    public void Update(User user)
+    {
+        _context.Users.Update(user);
+    }
+
     public async Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _context.Users
             .Include(x => x.UserRoles)
             .ThenInclude(x => x.Role)
+            .Include(x => x.RefreshTokens)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
 
@@ -32,6 +38,7 @@ public class UserRepository : IUserRepository
         return await _context.Users
             .Include(x => x.UserRoles)
             .ThenInclude(x => x.Role)
+            .Include(x => x.RefreshTokens)
             .FirstOrDefaultAsync(x => x.Email == email, cancellationToken);
     }
 
@@ -40,6 +47,7 @@ public class UserRepository : IUserRepository
         return await _context.Users
             .Include(x => x.UserRoles)
             .ThenInclude(x => x.Role)
+            .Include(x => x.RefreshTokens)
             .FirstOrDefaultAsync(x => x.UserName == userName, cancellationToken);
     }
 
@@ -48,7 +56,10 @@ public class UserRepository : IUserRepository
         return await _context.Users
             .Include(x => x.UserRoles)
             .ThenInclude(x => x.Role)
-            .FirstOrDefaultAsync(x => x.UserName == userNameOrEmail || x.Email == userNameOrEmail, cancellationToken);
+            .Include(x => x.RefreshTokens)
+            .FirstOrDefaultAsync(
+                x => x.UserName == userNameOrEmail || x.Email == userNameOrEmail,
+                cancellationToken);
     }
 
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)

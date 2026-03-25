@@ -19,6 +19,11 @@ public class RoleRepository : IRoleRepository
         return await _context.Roles.FirstOrDefaultAsync(x => x.Name == roleName, cancellationToken);
     }
 
+    public async Task<List<Role>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        return await _context.Roles.ToListAsync(cancellationToken);
+    }
+
     public async Task AddAsync(Role role, CancellationToken cancellationToken = default)
     {
         await _context.Roles.AddAsync(role, cancellationToken);

@@ -19,6 +19,11 @@ public class RefreshTokenRepository : IRefreshTokenRepository
         await _context.RefreshTokens.AddAsync(refreshToken, cancellationToken);
     }
 
+    public void Update(RefreshToken refreshToken)
+    {
+        _context.RefreshTokens.Update(refreshToken);
+    }
+
     public async Task<RefreshToken?> GetByTokenAsync(string token, CancellationToken cancellationToken = default)
     {
         return await _context.RefreshTokens
