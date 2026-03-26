@@ -21,7 +21,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Controllers\" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\ZenoBank.BuildingBlocks.Shared.Common\ZenoBank.BuildingBlocks.Shared.Common.csproj" />
+    <ProjectReference Include="..\ZenoBank.Services.Account.Application\ZenoBank.Services.Account.Application.csproj" />
+    <ProjectReference Include="..\ZenoBank.Services.Account.Infrastructure\ZenoBank.Services.Account.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

@@ -19,4 +19,15 @@
     </PackageReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\ZenoBank.BuildingBlocks.Shared.Common\ZenoBank.BuildingBlocks.Shared.Common.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\ZenoBank.BuildingBlocks.Shared.Contracts\ZenoBank.BuildingBlocks.Shared.Contracts.csproj" />
+    <ProjectReference Include="..\ZenoBank.Services.Account.Domain\ZenoBank.Services.Account.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Features\" />
+    <Folder Include="Validators\" />
+  </ItemGroup>
+
 </Project>
