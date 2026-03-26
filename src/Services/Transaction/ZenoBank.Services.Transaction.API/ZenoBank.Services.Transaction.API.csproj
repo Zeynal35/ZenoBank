@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -21,7 +21,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Controllers\" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\ZenoBank.BuildingBlocks.Shared.Common\ZenoBank.BuildingBlocks.Shared.Common.csproj" />
+    <ProjectReference Include="..\ZenoBank.Services.Transaction.Application\ZenoBank.Services.Transaction.Application.csproj" />
+    <ProjectReference Include="..\ZenoBank.Services.Transaction.Infrastructure\ZenoBank.Services.Transaction.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
