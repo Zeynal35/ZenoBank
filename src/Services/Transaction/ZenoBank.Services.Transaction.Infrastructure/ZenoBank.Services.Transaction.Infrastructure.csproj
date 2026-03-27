@@ -29,8 +29,4 @@
 		<ProjectReference Include="..\ZenoBank.Services.Transaction.Application\ZenoBank.Services.Transaction.Application.csproj" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<Folder Include="Configurations\" />
-	</ItemGroup>
-
 </Project>

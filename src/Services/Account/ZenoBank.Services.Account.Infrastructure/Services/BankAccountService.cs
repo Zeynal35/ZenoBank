@@ -89,15 +89,7 @@ public class BankAccountService : IBankAccountService
         if (account.UserId != userId)
             return Result<AccountBalanceDto>.Failure("You are not allowed to access this account.");
 
-        var balanceDto = new AccountBalanceDto
-        {
-            AccountId = account.Id,
-            AccountNumber = account.AccountNumber,
-            Balance = account.Balance,
-            Currency = account.Currency
-        };
-
-        return Result<AccountBalanceDto>.Success(balanceDto, "Account balance fetched successfully.");
+        return Result<AccountBalanceDto>.Success(MapBalance(account), "Account balance fetched successfully.");
     }
 
     public async Task<Result<List<BankAccountDto>>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -156,6 +148,107 @@ public class BankAccountService : IBankAccountService
         return Result.Success("Account unfrozen successfully.");
     }
 
+    public async Task<Result<InternalAccountDto>> GetInternalByIdAsync(Guid accountId, CancellationToken cancellationToken = default)
+    {
+        var account = await _repository.GetByIdAsync(accountId, cancellationToken);
+        if (account is null)
+            return Result<InternalAccountDto>.Failure("Account not found.");
+
+        return Result<InternalAccountDto>.Success(MapInternal(account), "Internal account fetched successfully.");
+    }
+
+    public async Task<Result<AccountBalanceDto>> IncreaseBalanceAsync(Guid accountId, decimal amount, CancellationToken cancellationToken = default)
+    {
+        if (amount <= 0)
+            return Result<AccountBalanceDto>.Failure("Amount must be greater than zero.");
+
+        var account = await _repository.GetByIdAsync(accountId, cancellationToken);
+        if (account is null)
+            return Result<AccountBalanceDto>.Failure("Account not found.");
+
+        if (account.Status == AccountStatus.Closed)
+            return Result<AccountBalanceDto>.Failure("Closed account cannot be updated.");
+
+        if (account.Status == AccountStatus.Frozen)
+            return Result<AccountBalanceDto>.Failure("Frozen account cannot be updated.");
+
+        account.Balance += amount;
+        account.UpdatedAtUtc = DateTime.UtcNow;
+
+        _repository.Update(account);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        return Result<AccountBalanceDto>.Success(MapBalance(account), "Balance increased successfully.");
+    }
+
+    public async Task<Result<AccountBalanceDto>> DecreaseBalanceAsync(Guid accountId, decimal amount, CancellationToken cancellationToken = default)
+    {
+        if (amount <= 0)
+            return Result<AccountBalanceDto>.Failure("Amount must be greater than zero.");
+
+        var account = await _repository.GetByIdAsync(accountId, cancellationToken);
+        if (account is null)
+            return Result<AccountBalanceDto>.Failure("Account not found.");
+
+        if (account.Status == AccountStatus.Closed)
+            return Result<AccountBalanceDto>.Failure("Closed account cannot be updated.");
+
+        if (account.Status == AccountStatus.Frozen)
+            return Result<AccountBalanceDto>.Failure("Frozen account cannot be updated.");
+
+        if (account.Balance < amount)
+            return Result<AccountBalanceDto>.Failure("Insufficient balance.");
+
+        account.Balance -= amount;
+        account.UpdatedAtUtc = DateTime.UtcNow;
+
+        _repository.Update(account);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        return Result<AccountBalanceDto>.Success(MapBalance(account), "Balance decreased successfully.");
+    }
+
+    public async Task<Result> TransferBalanceAsync(Guid fromAccountId, Guid toAccountId, decimal amount, CancellationToken cancellationToken = default)
+    {
+        if (fromAccountId == Guid.Empty || toAccountId == Guid.Empty)
+            return Result.Failure("Account ids are required.");
+
+        if (fromAccountId == toAccountId)
+            return Result.Failure("From and to accounts cannot be the same.");
+
+        if (amount <= 0)
+            return Result.Failure("Amount must be greater than zero.");
+
+        var fromAccount = await _repository.GetByIdAsync(fromAccountId, cancellationToken);
+        if (fromAccount is null)
+            return Result.Failure("Sender account not found.");
+
+        var toAccount = await _repository.GetByIdAsync(toAccountId, cancellationToken);
+        if (toAccount is null)
+            return Result.Failure("Receiver account not found.");
+
+        if (fromAccount.Status == AccountStatus.Closed || toAccount.Status == AccountStatus.Closed)
+            return Result.Failure("Closed account cannot participate in transfer.");
+
+        if (fromAccount.Status == AccountStatus.Frozen || toAccount.Status == AccountStatus.Frozen)
+            return Result.Failure("Frozen account cannot participate in transfer.");
+
+        if (fromAccount.Balance < amount)
+            return Result.Failure("Insufficient balance.");
+
+        fromAccount.Balance -= amount;
+        toAccount.Balance += amount;
+
+        fromAccount.UpdatedAtUtc = DateTime.UtcNow;
+        toAccount.UpdatedAtUtc = DateTime.UtcNow;
+
+        _repository.Update(fromAccount);
+        _repository.Update(toAccount);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        return Result.Success("Transfer applied successfully.");
+    }
+
     private static BankAccountDto Map(BankAccount account)
     {
         return new BankAccountDto
@@ -168,6 +261,33 @@ public class BankAccountService : IBankAccountService
             Currency = account.Currency,
             Balance = account.Balance,
             Status = account.Status.ToString()
+        };
+    }
+
+    private static InternalAccountDto MapInternal(BankAccount account)
+    {
+        return new InternalAccountDto
+        {
+            Id = account.Id,
+            CustomerProfileId = account.CustomerProfileId,
+            UserId = account.UserId,
+            AccountNumber = account.AccountNumber,
+            AccountType = account.AccountType.ToString(),
+            Currency = account.Currency,
+            Balance = account.Balance,
+            Status = account.Status.ToString(),
+            IsFrozen = account.IsFrozen
+        };
+    }
+
+    private static AccountBalanceDto MapBalance(BankAccount account)
+    {
+        return new AccountBalanceDto
+        {
+            AccountId = account.Id,
+            AccountNumber = account.AccountNumber,
+            Balance = account.Balance,
+            Currency = account.Currency
         };
     }
 }

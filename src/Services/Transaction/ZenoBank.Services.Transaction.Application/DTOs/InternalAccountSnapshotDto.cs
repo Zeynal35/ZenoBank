@@ -1,0 +1,17 @@
+﻿namespace ZenoBank.Services.Transaction.Application.DTOs;
+
+public class InternalAccountSnapshotDto
+{
+    public Guid Id { get; set; }
+    public Guid CustomerProfileId { get; set; }
+    public Guid UserId { get; set; }
+
+    public string AccountNumber { get; set; } = string.Empty;
+    public string AccountType { get; set; } = string.Empty;
+    public string Currency { get; set; } = string.Empty;
+
+    public decimal Balance { get; set; }
+    public string Status { get; set; } = string.Empty;
+
+    public bool IsFrozen { get; set; }
+}

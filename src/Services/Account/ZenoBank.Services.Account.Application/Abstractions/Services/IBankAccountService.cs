@@ -15,4 +15,9 @@ public interface IBankAccountService
 
     Task<Result> FreezeAsync(Guid accountId, CancellationToken cancellationToken = default);
     Task<Result> UnfreezeAsync(Guid accountId, CancellationToken cancellationToken = default);
+
+    Task<Result<InternalAccountDto>> GetInternalByIdAsync(Guid accountId, CancellationToken cancellationToken = default);
+    Task<Result<AccountBalanceDto>> IncreaseBalanceAsync(Guid accountId, decimal amount, CancellationToken cancellationToken = default);
+    Task<Result<AccountBalanceDto>> DecreaseBalanceAsync(Guid accountId, decimal amount, CancellationToken cancellationToken = default);
+    Task<Result> TransferBalanceAsync(Guid fromAccountId, Guid toAccountId, decimal amount, CancellationToken cancellationToken = default);
 }
