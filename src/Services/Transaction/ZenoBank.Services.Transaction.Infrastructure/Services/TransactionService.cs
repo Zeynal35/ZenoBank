@@ -11,13 +11,16 @@ public class TransactionService : ITransactionService
 {
     private readonly ITransactionRepository _repository;
     private readonly ITransactionReferenceGenerator _referenceGenerator;
+    private readonly IAccountServiceClient _accountServiceClient;
 
     public TransactionService(
         ITransactionRepository repository,
-        ITransactionReferenceGenerator referenceGenerator)
+        ITransactionReferenceGenerator referenceGenerator,
+        IAccountServiceClient accountServiceClient)
     {
         _repository = repository;
         _referenceGenerator = referenceGenerator;
+        _accountServiceClient = accountServiceClient;
     }
 
     public async Task<Result<TransactionRecordDto>> DepositAsync(Guid userId, DepositRequest request, CancellationToken cancellationToken = default)
@@ -36,17 +39,38 @@ public class TransactionService : ITransactionService
         if (errors.Count > 0)
             return Result<TransactionRecordDto>.Failure("Validation failed.", errors);
 
-        var transaction = new TransactionRecord
+        var increaseResult = await _accountServiceClient.IncreaseBalanceAsync(
+            request.ToAccountId,
+            request.Amount,
+            cancellationToken);
+
+        if (increaseResult.IsFailure)
         {
-            UserId = userId,
-            ReferenceNumber = GenerateUniqueReference(),
-            TransactionType = TransactionType.Deposit,
-            Status = TransactionStatus.Completed,
-            ToAccountId = request.ToAccountId,
-            Amount = request.Amount,
-            Currency = request.Currency.Trim().ToUpper(),
-            Description = request.Description?.Trim() ?? string.Empty
-        };
+            var failedTransaction = CreateTransaction(
+                userId,
+                TransactionType.Deposit,
+                TransactionStatus.Failed,
+                null,
+                request.ToAccountId,
+                request.Amount,
+                request.Currency,
+                request.Description);
+
+            await _repository.AddAsync(failedTransaction, cancellationToken);
+            await _repository.SaveChangesAsync(cancellationToken);
+
+            return Result<TransactionRecordDto>.Failure(increaseResult.Message, increaseResult.Errors);
+        }
+
+        var transaction = CreateTransaction(
+            userId,
+            TransactionType.Deposit,
+            TransactionStatus.Completed,
+            null,
+            request.ToAccountId,
+            request.Amount,
+            request.Currency,
+            request.Description);
 
         await _repository.AddAsync(transaction, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
@@ -70,17 +94,45 @@ public class TransactionService : ITransactionService
         if (errors.Count > 0)
             return Result<TransactionRecordDto>.Failure("Validation failed.", errors);
 
-        var transaction = new TransactionRecord
+        var accountResult = await _accountServiceClient.GetAccountByIdAsync(request.FromAccountId, cancellationToken);
+        if (accountResult.IsFailure || accountResult.Data is null)
+            return Result<TransactionRecordDto>.Failure(accountResult.Message, accountResult.Errors);
+
+        if (accountResult.Data.UserId != userId)
+            return Result<TransactionRecordDto>.Failure("You are not allowed to withdraw from this account.");
+
+        var decreaseResult = await _accountServiceClient.DecreaseBalanceAsync(
+            request.FromAccountId,
+            request.Amount,
+            cancellationToken);
+
+        if (decreaseResult.IsFailure)
         {
-            UserId = userId,
-            ReferenceNumber = GenerateUniqueReference(),
-            TransactionType = TransactionType.Withdraw,
-            Status = TransactionStatus.Completed,
-            FromAccountId = request.FromAccountId,
-            Amount = request.Amount,
-            Currency = request.Currency.Trim().ToUpper(),
-            Description = request.Description?.Trim() ?? string.Empty
-        };
+            var failedTransaction = CreateTransaction(
+                userId,
+                TransactionType.Withdraw,
+                TransactionStatus.Failed,
+                request.FromAccountId,
+                null,
+                request.Amount,
+                request.Currency,
+                request.Description);
+
+            await _repository.AddAsync(failedTransaction, cancellationToken);
+            await _repository.SaveChangesAsync(cancellationToken);
+
+            return Result<TransactionRecordDto>.Failure(decreaseResult.Message, decreaseResult.Errors);
+        }
+
+        var transaction = CreateTransaction(
+            userId,
+            TransactionType.Withdraw,
+            TransactionStatus.Completed,
+            request.FromAccountId,
+            null,
+            request.Amount,
+            request.Currency,
+            request.Description);
 
         await _repository.AddAsync(transaction, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
@@ -110,18 +162,50 @@ public class TransactionService : ITransactionService
         if (errors.Count > 0)
             return Result<TransactionRecordDto>.Failure("Validation failed.", errors);
 
-        var transaction = new TransactionRecord
+        var fromAccountResult = await _accountServiceClient.GetAccountByIdAsync(request.FromAccountId, cancellationToken);
+        if (fromAccountResult.IsFailure || fromAccountResult.Data is null)
+            return Result<TransactionRecordDto>.Failure(fromAccountResult.Message, fromAccountResult.Errors);
+
+        if (fromAccountResult.Data.UserId != userId)
+            return Result<TransactionRecordDto>.Failure("You are not allowed to transfer from this account.");
+
+        var toAccountResult = await _accountServiceClient.GetAccountByIdAsync(request.ToAccountId, cancellationToken);
+        if (toAccountResult.IsFailure || toAccountResult.Data is null)
+            return Result<TransactionRecordDto>.Failure(toAccountResult.Message, toAccountResult.Errors);
+
+        var transferResult = await _accountServiceClient.TransferBalanceAsync(
+            request.FromAccountId,
+            request.ToAccountId,
+            request.Amount,
+            cancellationToken);
+
+        if (transferResult.IsFailure)
         {
-            UserId = userId,
-            ReferenceNumber = GenerateUniqueReference(),
-            TransactionType = TransactionType.Transfer,
-            Status = TransactionStatus.Completed,
-            FromAccountId = request.FromAccountId,
-            ToAccountId = request.ToAccountId,
-            Amount = request.Amount,
-            Currency = request.Currency.Trim().ToUpper(),
-            Description = request.Description?.Trim() ?? string.Empty
-        };
+            var failedTransaction = CreateTransaction(
+                userId,
+                TransactionType.Transfer,
+                TransactionStatus.Failed,
+                request.FromAccountId,
+                request.ToAccountId,
+                request.Amount,
+                request.Currency,
+                request.Description);
+
+            await _repository.AddAsync(failedTransaction, cancellationToken);
+            await _repository.SaveChangesAsync(cancellationToken);
+
+            return Result<TransactionRecordDto>.Failure(transferResult.Message, transferResult.Errors);
+        }
+
+        var transaction = CreateTransaction(
+            userId,
+            TransactionType.Transfer,
+            TransactionStatus.Completed,
+            request.FromAccountId,
+            request.ToAccountId,
+            request.Amount,
+            request.Currency,
+            request.Description);
 
         await _repository.AddAsync(transaction, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
@@ -166,9 +250,28 @@ public class TransactionService : ITransactionService
         return Result<TransactionRecordDto>.Success(Map(transaction), "Transaction fetched successfully.");
     }
 
-    private string GenerateUniqueReference()
+    private TransactionRecord CreateTransaction(
+        Guid userId,
+        TransactionType transactionType,
+        TransactionStatus status,
+        Guid? fromAccountId,
+        Guid? toAccountId,
+        decimal amount,
+        string currency,
+        string? description)
     {
-        return _referenceGenerator.Generate();
+        return new TransactionRecord
+        {
+            UserId = userId,
+            ReferenceNumber = _referenceGenerator.Generate(),
+            TransactionType = transactionType,
+            Status = status,
+            FromAccountId = fromAccountId,
+            ToAccountId = toAccountId,
+            Amount = amount,
+            Currency = currency.Trim().ToUpper(),
+            Description = description?.Trim() ?? string.Empty
+        };
     }
 
     private static TransactionRecordDto Map(TransactionRecord transaction)

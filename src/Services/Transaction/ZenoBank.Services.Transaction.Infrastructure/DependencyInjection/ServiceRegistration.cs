@@ -27,7 +27,14 @@ public static class ServiceRegistration
         {
             var endpoints = configuration.GetSection(ServiceEndpoints.SectionName).Get<ServiceEndpoints>();
             client.BaseAddress = new Uri(endpoints!.AccountApiBaseUrl);
-        });
+        })
+.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+{
+    ServerCertificateCustomValidationCallback =
+        HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+});
+
+
 
         services.AddScoped<ITransactionRepository, TransactionRepository>();
         services.AddScoped<ITransactionService, TransactionService>();
