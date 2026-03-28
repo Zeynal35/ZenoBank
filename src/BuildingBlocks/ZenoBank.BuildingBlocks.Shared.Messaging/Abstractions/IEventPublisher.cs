@@ -1,4 +1,6 @@
-﻿using ZenoBank.BuildingBlocks.Shared.Contracts.Events;
+﻿
+
+using ZenoBank.BuildingBlocks.Shared.Contracts.Events;
 
 namespace ZenoBank.BuildingBlocks.Shared.Messaging.Abstractions;
 

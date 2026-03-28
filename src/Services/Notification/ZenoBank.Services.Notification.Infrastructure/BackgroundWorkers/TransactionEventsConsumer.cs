@@ -1,6 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
@@ -86,7 +84,6 @@ public class TransactionEventsConsumer : BackgroundService
                                     NotificationType = NotificationType.Deposit
                                 }, stoppingToken);
                             }
-
                             break;
                         }
 
@@ -103,7 +100,6 @@ public class TransactionEventsConsumer : BackgroundService
                                     NotificationType = NotificationType.Withdraw
                                 }, stoppingToken);
                             }
-
                             break;
                         }
 
@@ -120,7 +116,6 @@ public class TransactionEventsConsumer : BackgroundService
                                     NotificationType = NotificationType.Transfer
                                 }, stoppingToken);
                             }
-
                             break;
                         }
                 }

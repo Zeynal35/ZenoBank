@@ -10,7 +10,11 @@ public static class ServiceRegistration
 {
     public static IServiceCollection AddSharedMessaging(this IServiceCollection services, IConfiguration configuration)
     {
-        services.Configure<RabbitMqSettings>(configuration.GetSection(RabbitMqSettings.SectionName));
+        services.Configure<RabbitMqSettings>(options =>
+        {
+            configuration.GetSection(RabbitMqSettings.SectionName).Bind(options);
+        });
+
         services.AddScoped<IEventPublisher, RabbitMqEventPublisher>();
 
         return services;

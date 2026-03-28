@@ -6,7 +6,6 @@ using ZenoBank.BuildingBlocks.Shared.Contracts.Events;
 using ZenoBank.BuildingBlocks.Shared.Messaging.Abstractions;
 using ZenoBank.BuildingBlocks.Shared.Messaging.Configurations;
 
-
 namespace ZenoBank.BuildingBlocks.Shared.Messaging.Services;
 
 public class RabbitMqEventPublisher : IEventPublisher
