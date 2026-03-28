@@ -1,4 +1,5 @@
 ﻿using System.Net.Http.Json;
+using System.Text.Json;
 using ZenoBank.BuildingBlocks.Shared.Common.Results;
 using ZenoBank.Services.Transaction.Application.Abstractions.Services;
 using ZenoBank.Services.Transaction.Application.DTOs;
@@ -19,13 +20,11 @@ public class AccountServiceClient : IAccountServiceClient
         try
         {
             var response = await _httpClient.GetAsync($"internal/accounts/{accountId}", cancellationToken);
-
-            var content = await response.Content.ReadFromJsonAsync<ServiceApiResponse<InternalAccountSnapshotDto>>(
-                cancellationToken: cancellationToken);
+            var content = await ReadResponseAsync<InternalAccountSnapshotDto>(response, cancellationToken);
 
             if (!response.IsSuccessStatusCode || content is null || !content.Success || content.Data is null)
                 return Result<InternalAccountSnapshotDto>.Failure(
-                    content?.Message ?? "Failed to fetch account.",
+                    content?.Message ?? $"Failed to fetch account. HTTP {(int)response.StatusCode}",
                     content?.Errors);
 
             return Result<InternalAccountSnapshotDto>.Success(content.Data, content.Message);
@@ -53,12 +52,11 @@ public class AccountServiceClient : IAccountServiceClient
                 new { AccountId = accountId, Amount = amount },
                 cancellationToken);
 
-            var content = await response.Content.ReadFromJsonAsync<ServiceApiResponse<AccountBalanceSnapshotDto>>(
-                cancellationToken: cancellationToken);
+            var content = await ReadResponseAsync<AccountBalanceSnapshotDto>(response, cancellationToken);
 
             if (!response.IsSuccessStatusCode || content is null || !content.Success || content.Data is null)
                 return Result<AccountBalanceSnapshotDto>.Failure(
-                    content?.Message ?? "Failed to increase balance.",
+                    content?.Message ?? $"Failed to increase balance. HTTP {(int)response.StatusCode}",
                     content?.Errors);
 
             return Result<AccountBalanceSnapshotDto>.Success(content.Data, content.Message);
@@ -86,12 +84,11 @@ public class AccountServiceClient : IAccountServiceClient
                 new { AccountId = accountId, Amount = amount },
                 cancellationToken);
 
-            var content = await response.Content.ReadFromJsonAsync<ServiceApiResponse<AccountBalanceSnapshotDto>>(
-                cancellationToken: cancellationToken);
+            var content = await ReadResponseAsync<AccountBalanceSnapshotDto>(response, cancellationToken);
 
             if (!response.IsSuccessStatusCode || content is null || !content.Success || content.Data is null)
                 return Result<AccountBalanceSnapshotDto>.Failure(
-                    content?.Message ?? "Failed to decrease balance.",
+                    content?.Message ?? $"Failed to decrease balance. HTTP {(int)response.StatusCode}",
                     content?.Errors);
 
             return Result<AccountBalanceSnapshotDto>.Success(content.Data, content.Message);
@@ -119,12 +116,11 @@ public class AccountServiceClient : IAccountServiceClient
                 new { FromAccountId = fromAccountId, ToAccountId = toAccountId, Amount = amount },
                 cancellationToken);
 
-            var content = await response.Content.ReadFromJsonAsync<ServiceApiResponse<object>>(
-                cancellationToken: cancellationToken);
+            var content = await ReadResponseAsync<object>(response, cancellationToken);
 
             if (!response.IsSuccessStatusCode || content is null || !content.Success)
                 return Result.Failure(
-                    content?.Message ?? "Failed to transfer balance.",
+                    content?.Message ?? $"Failed to transfer balance. HTTP {(int)response.StatusCode}",
                     content?.Errors);
 
             return Result.Success(content.Message);
@@ -140,6 +136,23 @@ public class AccountServiceClient : IAccountServiceClient
         catch (Exception ex)
         {
             return Result.Failure($"Unexpected account service error: {ex.Message}");
+        }
+    }
+
+    private static async Task<ServiceApiResponse<T>?> ReadResponseAsync<T>(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await response.Content.ReadFromJsonAsync<ServiceApiResponse<T>>(cancellationToken: cancellationToken);
+        }
+        catch (JsonException)
+        {
+            var raw = await response.Content.ReadAsStringAsync(cancellationToken);
+            return new ServiceApiResponse<T>
+            {
+                Success = false,
+                Message = $"Account API returned invalid JSON. HTTP {(int)response.StatusCode}. Raw: {raw}"
+            };
         }
     }
 }

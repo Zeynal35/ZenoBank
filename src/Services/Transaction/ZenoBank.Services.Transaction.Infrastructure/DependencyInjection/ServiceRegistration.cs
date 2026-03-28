@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using ZenoBank.BuildingBlocks.Shared.Messaging.DependencyInjection;
 using ZenoBank.Services.Transaction.Application.Abstractions.Repositories;
 using ZenoBank.Services.Transaction.Application.Abstractions.Services;
 using ZenoBank.Services.Transaction.Infrastructure.Configurations;
@@ -26,15 +27,20 @@ public static class ServiceRegistration
         services.AddHttpClient<IAccountServiceClient, AccountServiceClient>((sp, client) =>
         {
             var endpoints = configuration.GetSection(ServiceEndpoints.SectionName).Get<ServiceEndpoints>();
-            client.BaseAddress = new Uri(endpoints!.AccountApiBaseUrl);
+
+            if (endpoints is null || string.IsNullOrWhiteSpace(endpoints.AccountApiBaseUrl))
+                throw new InvalidOperationException("ServiceEndpoints:AccountApiBaseUrl is missing in configuration.");
+
+            client.BaseAddress = new Uri(endpoints.AccountApiBaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(15);
         })
-.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-{
-    ServerCertificateCustomValidationCallback =
-        HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-});
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback =
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+        });
 
-
+        services.AddSharedMessaging(configuration);
 
         services.AddScoped<ITransactionRepository, TransactionRepository>();
         services.AddScoped<ITransactionService, TransactionService>();
