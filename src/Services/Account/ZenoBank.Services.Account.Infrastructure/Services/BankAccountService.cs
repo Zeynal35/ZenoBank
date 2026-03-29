@@ -1,4 +1,6 @@
-﻿using ZenoBank.BuildingBlocks.Shared.Common.Results;
+﻿using ZenoBank.BuildingBlocks.Shared.Common.Abstractions;
+using ZenoBank.BuildingBlocks.Shared.Common.DTOs;
+using ZenoBank.BuildingBlocks.Shared.Common.Results;
 using ZenoBank.Services.Account.Application.Abstractions.Repositories;
 using ZenoBank.Services.Account.Application.Abstractions.Services;
 using ZenoBank.Services.Account.Application.DTOs;
@@ -11,13 +13,16 @@ public class BankAccountService : IBankAccountService
 {
     private readonly IBankAccountRepository _repository;
     private readonly IAccountNumberGenerator _accountNumberGenerator;
+    private readonly IAuditLogger _auditLogger;
 
     public BankAccountService(
         IBankAccountRepository repository,
-        IAccountNumberGenerator accountNumberGenerator)
+        IAccountNumberGenerator accountNumberGenerator,
+        IAuditLogger auditLogger)
     {
         _repository = repository;
         _accountNumberGenerator = accountNumberGenerator;
+        _auditLogger = auditLogger;
     }
 
     public async Task<Result<BankAccountDto>> CreateAsync(Guid userId, CreateBankAccountRequest request, CancellationToken cancellationToken = default)
@@ -56,6 +61,16 @@ public class BankAccountService : IBankAccountService
 
         await _repository.AddAsync(account, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = userId,
+            Action = "BankAccountCreated",
+            EntityType = "BankAccount",
+            EntityId = account.Id.ToString(),
+            Description = $"Bank account {account.AccountNumber} created.",
+            Status = "Success"
+        }, cancellationToken);
 
         return Result<BankAccountDto>.Success(Map(account), "Bank account created successfully.");
     }
@@ -127,6 +142,16 @@ public class BankAccountService : IBankAccountService
         _repository.Update(account);
         await _repository.SaveChangesAsync(cancellationToken);
 
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = account.UserId,
+            Action = "BankAccountFrozen",
+            EntityType = "BankAccount",
+            EntityId = account.Id.ToString(),
+            Description = $"Bank account {account.AccountNumber} frozen.",
+            Status = "Success"
+        }, cancellationToken);
+
         return Result.Success("Account frozen successfully.");
     }
 
@@ -144,6 +169,16 @@ public class BankAccountService : IBankAccountService
 
         _repository.Update(account);
         await _repository.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = account.UserId,
+            Action = "BankAccountUnfrozen",
+            EntityType = "BankAccount",
+            EntityId = account.Id.ToString(),
+            Description = $"Bank account {account.AccountNumber} unfrozen.",
+            Status = "Success"
+        }, cancellationToken);
 
         return Result.Success("Account unfrozen successfully.");
     }
@@ -178,6 +213,16 @@ public class BankAccountService : IBankAccountService
         _repository.Update(account);
         await _repository.SaveChangesAsync(cancellationToken);
 
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = account.UserId,
+            Action = "BalanceIncreased",
+            EntityType = "BankAccount",
+            EntityId = account.Id.ToString(),
+            Description = $"Balance increased by {amount} {account.Currency} for account {account.AccountNumber}.",
+            Status = "Success"
+        }, cancellationToken);
+
         return Result<AccountBalanceDto>.Success(MapBalance(account), "Balance increased successfully.");
     }
 
@@ -204,6 +249,16 @@ public class BankAccountService : IBankAccountService
 
         _repository.Update(account);
         await _repository.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = account.UserId,
+            Action = "BalanceDecreased",
+            EntityType = "BankAccount",
+            EntityId = account.Id.ToString(),
+            Description = $"Balance decreased by {amount} {account.Currency} for account {account.AccountNumber}.",
+            Status = "Success"
+        }, cancellationToken);
 
         return Result<AccountBalanceDto>.Success(MapBalance(account), "Balance decreased successfully.");
     }
@@ -245,6 +300,16 @@ public class BankAccountService : IBankAccountService
         _repository.Update(fromAccount);
         _repository.Update(toAccount);
         await _repository.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = fromAccount.UserId,
+            Action = "BalanceTransferred",
+            EntityType = "BankAccount",
+            EntityId = fromAccount.Id.ToString(),
+            Description = $"Transferred {amount} {fromAccount.Currency} from {fromAccount.AccountNumber} to {toAccount.AccountNumber}.",
+            Status = "Success"
+        }, cancellationToken);
 
         return Result.Success("Transfer applied successfully.");
     }

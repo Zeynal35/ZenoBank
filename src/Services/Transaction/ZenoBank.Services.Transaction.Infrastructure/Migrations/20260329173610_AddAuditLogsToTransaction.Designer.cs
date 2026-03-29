@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using ZenoBank.Services.Customer.Infrastructure.Persistence;
+using ZenoBank.Services.Transaction.Infrastructure.Persistence;
 
 #nullable disable
 
-namespace ZenoBank.Services.Customer.Infrastructure.Migrations
+namespace ZenoBank.Services.Transaction.Infrastructure.Migrations
 {
-    [DbContext(typeof(CustomerDbContext))]
-    partial class CustomerDbContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(TransactionDbContext))]
+    [Migration("20260329173610_AddAuditLogsToTransaction")]
+    partial class AddAuditLogsToTransaction
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -68,39 +71,43 @@ namespace ZenoBank.Services.Customer.Infrastructure.Migrations
                     b.ToTable("AuditLogs");
                 });
 
-            modelBuilder.Entity("ZenoBank.Services.Customer.Domain.Entities.CustomerProfile", b =>
+            modelBuilder.Entity("ZenoBank.Services.Transaction.Domain.Entities.TransactionRecord", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Address")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateTime>("DateOfBirth")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("FirstName")
+                    b.Property<string>("Currency")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
 
-                    b.Property<string>("LastName")
+                    b.Property<string>("Description")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
-                    b.Property<string>("PhoneNumber")
+                    b.Property<Guid?>("FromAccountId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReferenceNumber")
                         .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("ToAccountId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("TransactionType")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
@@ -111,10 +118,16 @@ namespace ZenoBank.Services.Customer.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId")
+                    b.HasIndex("FromAccountId");
+
+                    b.HasIndex("ReferenceNumber")
                         .IsUnique();
 
-                    b.ToTable("CustomerProfiles");
+                    b.HasIndex("ToAccountId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Transactions");
                 });
 #pragma warning restore 612, 618
         }

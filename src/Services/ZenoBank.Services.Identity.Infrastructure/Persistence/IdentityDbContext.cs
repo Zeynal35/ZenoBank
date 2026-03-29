@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
-using System.Reflection.Emit;
+using ZenoBank.BuildingBlocks.Shared.Common.Entities;
 using ZenoBank.Services.Identity.Domain.Entities;
 
 namespace ZenoBank.Services.Identity.Infrastructure.Persistence;
@@ -15,6 +14,7 @@ public class IdentityDbContext : DbContext
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -25,18 +25,21 @@ public class IdentityDbContext : DbContext
             entity.HasKey(x => x.Id);
 
             entity.Property(x => x.UserName)
-                  .IsRequired()
-                  .HasMaxLength(100);
+                .IsRequired()
+                .HasMaxLength(100);
 
             entity.Property(x => x.Email)
-                  .IsRequired()
-                  .HasMaxLength(200);
+                .IsRequired()
+                .HasMaxLength(200);
 
             entity.Property(x => x.PasswordHash)
-                  .IsRequired();
+                .IsRequired();
 
-            entity.HasIndex(x => x.UserName).IsUnique();
-            entity.HasIndex(x => x.Email).IsUnique();
+            entity.HasIndex(x => x.UserName)
+                .IsUnique();
+
+            entity.HasIndex(x => x.Email)
+                .IsUnique();
         });
 
         modelBuilder.Entity<Role>(entity =>
@@ -44,10 +47,11 @@ public class IdentityDbContext : DbContext
             entity.HasKey(x => x.Id);
 
             entity.Property(x => x.Name)
-                  .IsRequired()
-                  .HasMaxLength(50);
+                .IsRequired()
+                .HasMaxLength(50);
 
-            entity.HasIndex(x => x.Name).IsUnique();
+            entity.HasIndex(x => x.Name)
+                .IsUnique();
         });
 
         modelBuilder.Entity<UserRole>(entity =>
@@ -55,12 +59,12 @@ public class IdentityDbContext : DbContext
             entity.HasKey(x => new { x.UserId, x.RoleId });
 
             entity.HasOne(x => x.User)
-                  .WithMany(x => x.UserRoles)
-                  .HasForeignKey(x => x.UserId);
+                .WithMany(x => x.UserRoles)
+                .HasForeignKey(x => x.UserId);
 
             entity.HasOne(x => x.Role)
-                  .WithMany(x => x.UserRoles)
-                  .HasForeignKey(x => x.RoleId);
+                .WithMany(x => x.UserRoles)
+                .HasForeignKey(x => x.RoleId);
         });
 
         modelBuilder.Entity<RefreshToken>(entity =>
@@ -68,13 +72,28 @@ public class IdentityDbContext : DbContext
             entity.HasKey(x => x.Id);
 
             entity.Property(x => x.Token)
-                  .IsRequired();
+                .IsRequired();
 
-            entity.HasIndex(x => x.Token).IsUnique();
+            entity.HasIndex(x => x.Token)
+                .IsUnique();
 
             entity.HasOne(x => x.User)
-                  .WithMany(x => x.RefreshTokens)
-                  .HasForeignKey(x => x.UserId);
+                .WithMany(x => x.RefreshTokens)
+                .HasForeignKey(x => x.UserId);
+        });
+
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Action).IsRequired().HasMaxLength(100);
+            entity.Property(x => x.EntityType).IsRequired().HasMaxLength(100);
+            entity.Property(x => x.EntityId).IsRequired().HasMaxLength(100);
+            entity.Property(x => x.Description).IsRequired().HasMaxLength(1000);
+            entity.Property(x => x.Status).IsRequired().HasMaxLength(50);
+
+            entity.HasIndex(x => x.UserId);
+            entity.HasIndex(x => x.CreatedAtUtc);
         });
     }
 }

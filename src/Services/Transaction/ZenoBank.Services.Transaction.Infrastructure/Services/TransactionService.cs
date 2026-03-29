@@ -1,4 +1,6 @@
-﻿using ZenoBank.BuildingBlocks.Shared.Common.Results;
+﻿using ZenoBank.BuildingBlocks.Shared.Common.Abstractions;
+using ZenoBank.BuildingBlocks.Shared.Common.DTOs;
+using ZenoBank.BuildingBlocks.Shared.Common.Results;
 using ZenoBank.BuildingBlocks.Shared.Contracts.Events;
 using ZenoBank.BuildingBlocks.Shared.Messaging.Abstractions;
 using ZenoBank.Services.Transaction.Application.Abstractions.Repositories;
@@ -15,17 +17,20 @@ public class TransactionService : ITransactionService
     private readonly ITransactionReferenceGenerator _referenceGenerator;
     private readonly IAccountServiceClient _accountServiceClient;
     private readonly IEventPublisher _eventPublisher;
+    private readonly IAuditLogger _auditLogger;
 
     public TransactionService(
         ITransactionRepository repository,
         ITransactionReferenceGenerator referenceGenerator,
         IAccountServiceClient accountServiceClient,
-        IEventPublisher eventPublisher)
+        IEventPublisher eventPublisher,
+        IAuditLogger auditLogger)
     {
         _repository = repository;
         _referenceGenerator = referenceGenerator;
         _accountServiceClient = accountServiceClient;
         _eventPublisher = eventPublisher;
+        _auditLogger = auditLogger;
     }
 
     public async Task<Result<TransactionRecordDto>> DepositAsync(Guid userId, DepositRequest request, CancellationToken cancellationToken = default)
@@ -61,6 +66,16 @@ public class TransactionService : ITransactionService
             await _repository.AddAsync(failedTransaction, cancellationToken);
             await _repository.SaveChangesAsync(cancellationToken);
 
+            await _auditLogger.WriteAsync(new CreateAuditLogRequest
+            {
+                UserId = userId,
+                Action = "DepositFailed",
+                EntityType = "Transaction",
+                EntityId = failedTransaction.Id.ToString(),
+                Description = $"Deposit failed for account {request.ToAccountId}. Reason: {increaseResult.Message}",
+                Status = "Failed"
+            }, cancellationToken);
+
             return Result<TransactionRecordDto>.Failure(increaseResult.Message, increaseResult.Errors);
         }
 
@@ -76,6 +91,16 @@ public class TransactionService : ITransactionService
 
         await _repository.AddAsync(transaction, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = userId,
+            Action = "DepositCompleted",
+            EntityType = "Transaction",
+            EntityId = transaction.Id.ToString(),
+            Description = $"Deposit completed for account {request.ToAccountId}. Amount: {request.Amount} {request.Currency}.",
+            Status = "Success"
+        }, cancellationToken);
 
         await _eventPublisher.PublishAsync(new DepositCompletedEvent
         {
@@ -131,6 +156,16 @@ public class TransactionService : ITransactionService
             await _repository.AddAsync(failedTransaction, cancellationToken);
             await _repository.SaveChangesAsync(cancellationToken);
 
+            await _auditLogger.WriteAsync(new CreateAuditLogRequest
+            {
+                UserId = userId,
+                Action = "WithdrawFailed",
+                EntityType = "Transaction",
+                EntityId = failedTransaction.Id.ToString(),
+                Description = $"Withdraw failed for account {request.FromAccountId}. Reason: {decreaseResult.Message}",
+                Status = "Failed"
+            }, cancellationToken);
+
             return Result<TransactionRecordDto>.Failure(decreaseResult.Message, decreaseResult.Errors);
         }
 
@@ -146,6 +181,16 @@ public class TransactionService : ITransactionService
 
         await _repository.AddAsync(transaction, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = userId,
+            Action = "WithdrawCompleted",
+            EntityType = "Transaction",
+            EntityId = transaction.Id.ToString(),
+            Description = $"Withdraw completed from account {request.FromAccountId}. Amount: {request.Amount} {request.Currency}.",
+            Status = "Success"
+        }, cancellationToken);
 
         await _eventPublisher.PublishAsync(new WithdrawCompletedEvent
         {
@@ -211,6 +256,16 @@ public class TransactionService : ITransactionService
             await _repository.AddAsync(failedTransaction, cancellationToken);
             await _repository.SaveChangesAsync(cancellationToken);
 
+            await _auditLogger.WriteAsync(new CreateAuditLogRequest
+            {
+                UserId = userId,
+                Action = "TransferFailed",
+                EntityType = "Transaction",
+                EntityId = failedTransaction.Id.ToString(),
+                Description = $"Transfer failed from {request.FromAccountId} to {request.ToAccountId}. Reason: {transferResult.Message}",
+                Status = "Failed"
+            }, cancellationToken);
+
             return Result<TransactionRecordDto>.Failure(transferResult.Message, transferResult.Errors);
         }
 
@@ -226,6 +281,16 @@ public class TransactionService : ITransactionService
 
         await _repository.AddAsync(transaction, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = userId,
+            Action = "TransferCompleted",
+            EntityType = "Transaction",
+            EntityId = transaction.Id.ToString(),
+            Description = $"Transfer completed from {request.FromAccountId} to {request.ToAccountId}. Amount: {request.Amount} {request.Currency}.",
+            Status = "Success"
+        }, cancellationToken);
 
         await _eventPublisher.PublishAsync(new TransferCompletedEvent
         {

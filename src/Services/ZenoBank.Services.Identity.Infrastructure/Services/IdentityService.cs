@@ -1,4 +1,6 @@
-﻿using ZenoBank.BuildingBlocks.Shared.Common.Results;
+﻿using ZenoBank.BuildingBlocks.Shared.Common.Abstractions;
+using ZenoBank.BuildingBlocks.Shared.Common.DTOs;
+using ZenoBank.BuildingBlocks.Shared.Common.Results;
 using ZenoBank.Services.Identity.Application.Abstractions.Repositories;
 using ZenoBank.Services.Identity.Application.Abstractions.Services;
 using ZenoBank.Services.Identity.Application.DTOs;
@@ -14,19 +16,22 @@ public class IdentityService : IIdentityService
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenService _tokenService;
+    private readonly IAuditLogger _auditLogger;
 
     public IdentityService(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IRefreshTokenRepository refreshTokenRepository,
         IPasswordHasher passwordHasher,
-        ITokenService tokenService)
+        ITokenService tokenService,
+        IAuditLogger auditLogger)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _refreshTokenRepository = refreshTokenRepository;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
+        _auditLogger = auditLogger;
     }
 
     public async Task<Result<UserDto>> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
@@ -79,6 +84,16 @@ public class IdentityService : IIdentityService
         await _userRepository.AddAsync(user, cancellationToken);
         await _userRepository.SaveChangesAsync(cancellationToken);
 
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = user.Id,
+            Action = "UserRegistered",
+            EntityType = "User",
+            EntityId = user.Id.ToString(),
+            Description = $"User {user.UserName} registered successfully.",
+            Status = "Success"
+        }, cancellationToken);
+
         var userDto = new UserDto
         {
             Id = user.Id,
@@ -123,6 +138,16 @@ public class IdentityService : IIdentityService
 
         await _refreshTokenRepository.AddAsync(refreshToken, cancellationToken);
         await _refreshTokenRepository.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = user.Id,
+            Action = "UserLoggedIn",
+            EntityType = "User",
+            EntityId = user.Id.ToString(),
+            Description = $"User {user.UserName} logged in successfully.",
+            Status = "Success"
+        }, cancellationToken);
 
         var response = new AuthResponse
         {
@@ -174,6 +199,16 @@ public class IdentityService : IIdentityService
         await _refreshTokenRepository.AddAsync(newRefreshToken, cancellationToken);
         await _refreshTokenRepository.SaveChangesAsync(cancellationToken);
 
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = user.Id,
+            Action = "TokenRefreshed",
+            EntityType = "RefreshToken",
+            EntityId = existingRefreshToken.Id.ToString(),
+            Description = $"Refresh token used for user {user.UserName}.",
+            Status = "Success"
+        }, cancellationToken);
+
         var response = new AuthResponse
         {
             AccessToken = newAccessToken,
@@ -199,6 +234,16 @@ public class IdentityService : IIdentityService
         existingRefreshToken.IsRevoked = true;
         _refreshTokenRepository.Update(existingRefreshToken);
         await _refreshTokenRepository.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = existingRefreshToken.UserId,
+            Action = "UserLoggedOut",
+            EntityType = "RefreshToken",
+            EntityId = existingRefreshToken.Id.ToString(),
+            Description = $"User logged out successfully.",
+            Status = "Success"
+        }, cancellationToken);
 
         return Result.Success("Logout successful.");
     }
@@ -233,6 +278,16 @@ public class IdentityService : IIdentityService
 
         _userRepository.Update(user);
         await _userRepository.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = user.Id,
+            Action = "RoleAssigned",
+            EntityType = "UserRole",
+            EntityId = user.Id.ToString(),
+            Description = $"Role {role.Name} assigned to user {user.UserName}.",
+            Status = "Success"
+        }, cancellationToken);
 
         return Result.Success("Role assigned successfully.");
     }

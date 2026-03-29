@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using ZenoBank.BuildingBlocks.Shared.Common.Abstractions;
 using ZenoBank.Services.Account.Application.Abstractions.Repositories;
 using ZenoBank.Services.Account.Application.Abstractions.Services;
 using ZenoBank.Services.Account.Infrastructure.Persistence;
@@ -24,6 +25,7 @@ public static class ServiceRegistration
         services.AddScoped<IBankAccountService, BankAccountService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IAccountNumberGenerator, AccountNumberGenerator>();
+        services.AddScoped<IAuditLogger, AccountAuditLogger>();
 
         return services;
     }

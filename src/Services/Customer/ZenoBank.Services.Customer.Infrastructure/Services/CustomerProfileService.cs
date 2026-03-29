@@ -1,4 +1,6 @@
-﻿using ZenoBank.BuildingBlocks.Shared.Common.Results;
+﻿using ZenoBank.BuildingBlocks.Shared.Common.Abstractions;
+using ZenoBank.BuildingBlocks.Shared.Common.DTOs;
+using ZenoBank.BuildingBlocks.Shared.Common.Results;
 using ZenoBank.Services.Customer.Application.Abstractions.Repositories;
 using ZenoBank.Services.Customer.Application.Abstractions.Services;
 using ZenoBank.Services.Customer.Application.DTOs;
@@ -10,10 +12,14 @@ namespace ZenoBank.Services.Customer.Infrastructure.Services;
 public class CustomerProfileService : ICustomerProfileService
 {
     private readonly ICustomerProfileRepository _repository;
+    private readonly IAuditLogger _auditLogger;
 
-    public CustomerProfileService(ICustomerProfileRepository repository)
+    public CustomerProfileService(
+        ICustomerProfileRepository repository,
+        IAuditLogger auditLogger)
     {
         _repository = repository;
+        _auditLogger = auditLogger;
     }
 
     public async Task<Result<CustomerProfileDto>> CreateAsync(Guid userId, CreateCustomerProfileRequest request, CancellationToken cancellationToken = default)
@@ -40,6 +46,16 @@ public class CustomerProfileService : ICustomerProfileService
 
         await _repository.AddAsync(profile, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = userId,
+            Action = "CustomerProfileCreated",
+            EntityType = "CustomerProfile",
+            EntityId = profile.Id.ToString(),
+            Description = $"Customer profile created for user {userId}.",
+            Status = "Success"
+        }, cancellationToken);
 
         return Result<CustomerProfileDto>.Success(Map(profile), "Customer profile created successfully.");
     }
@@ -73,6 +89,16 @@ public class CustomerProfileService : ICustomerProfileService
 
         _repository.Update(profile);
         await _repository.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = userId,
+            Action = "CustomerProfileUpdated",
+            EntityType = "CustomerProfile",
+            EntityId = profile.Id.ToString(),
+            Description = $"Customer profile updated for user {userId}.",
+            Status = "Success"
+        }, cancellationToken);
 
         return Result<CustomerProfileDto>.Success(Map(profile), "Customer profile updated successfully.");
     }

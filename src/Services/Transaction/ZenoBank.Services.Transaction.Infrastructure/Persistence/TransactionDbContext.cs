@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using ZenoBank.BuildingBlocks.Shared.Common.Entities;
 using ZenoBank.Services.Transaction.Domain.Entities;
 
 namespace ZenoBank.Services.Transaction.Infrastructure.Persistence;
@@ -10,6 +11,7 @@ public class TransactionDbContext : DbContext
     }
 
     public DbSet<TransactionRecord> Transactions => Set<TransactionRecord>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -37,6 +39,20 @@ public class TransactionDbContext : DbContext
             entity.HasIndex(x => x.UserId);
             entity.HasIndex(x => x.FromAccountId);
             entity.HasIndex(x => x.ToAccountId);
+        });
+
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Action).IsRequired().HasMaxLength(100);
+            entity.Property(x => x.EntityType).IsRequired().HasMaxLength(100);
+            entity.Property(x => x.EntityId).IsRequired().HasMaxLength(100);
+            entity.Property(x => x.Description).IsRequired().HasMaxLength(1000);
+            entity.Property(x => x.Status).IsRequired().HasMaxLength(50);
+
+            entity.HasIndex(x => x.UserId);
+            entity.HasIndex(x => x.CreatedAtUtc);
         });
     }
 }

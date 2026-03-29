@@ -1,13 +1,13 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using ZenoBank.BuildingBlocks.Shared.Common.Abstractions;
 using ZenoBank.Services.Identity.Application.Abstractions.Repositories;
 using ZenoBank.Services.Identity.Application.Abstractions.Services;
 using ZenoBank.Services.Identity.Infrastructure.Configurations;
 using ZenoBank.Services.Identity.Infrastructure.Persistence;
 using ZenoBank.Services.Identity.Infrastructure.Repositories;
 using ZenoBank.Services.Identity.Infrastructure.Services;
-
 
 namespace ZenoBank.Services.Identity.Infrastructure.DependencyInjection;
 
@@ -30,9 +30,10 @@ public static class ServiceRegistration
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
         services.AddScoped<IIdentityService, IdentityService>();
-        services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<ITokenService, TokenService>();
+        services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.AddScoped<IAuditLogger, IdentityAuditLogger>();
 
         return services;
     }
