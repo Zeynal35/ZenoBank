@@ -40,6 +40,12 @@ public class CustomerDbContext : DbContext
             entity.Property(x => x.Status)
                 .IsRequired();
 
+            entity.Property(x => x.BlacklistReason)
+                .HasMaxLength(500);
+
+            entity.Property(x => x.RiskLevel)
+                .IsRequired();
+
             entity.HasIndex(x => x.UserId)
                 .IsUnique();
         });

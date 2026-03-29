@@ -21,6 +21,7 @@
 		</PackageReference>
 		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.1" />
 		<PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
+		<PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
 	</ItemGroup>
 
 	<ItemGroup>

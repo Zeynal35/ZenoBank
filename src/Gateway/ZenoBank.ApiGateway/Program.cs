@@ -1,15 +1,16 @@
+using Yarp.ReverseProxy;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+builder.Services
+    .AddReverseProxy()
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
-builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -18,8 +19,13 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseAuthorization();
+app.MapGet("/", () => Results.Ok(new
+{
+    Service = "ZenoBank API Gateway",
+    Status = "Running",
+    TimestampUtc = DateTime.UtcNow
+}));
 
-app.MapControllers();
+app.MapReverseProxy();
 
 app.Run();

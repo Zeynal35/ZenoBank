@@ -24,10 +24,19 @@ public class CustomerProfileService : ICustomerProfileService
 
     public async Task<Result<CustomerProfileDto>> CreateAsync(Guid userId, CreateCustomerProfileRequest request, CancellationToken cancellationToken = default)
     {
-        var errors = ValidateCreateOrUpdate(request.FirstName, request.LastName, request.PhoneNumber, request.Address, request.DateOfBirth);
+        var errors = ValidateCreateOrUpdate(
+            request.FirstName,
+            request.LastName,
+            request.PhoneNumber,
+            request.Address,
+            request.DateOfBirth);
 
         if (errors.Count > 0)
             return Result<CustomerProfileDto>.Failure("Validation failed.", errors);
+
+        var age = CalculateAge(request.DateOfBirth);
+        if (age < 18)
+            return Result<CustomerProfileDto>.Failure("Customer must be at least 18 years old.");
 
         var existingProfile = await _repository.GetByUserIdAsync(userId, cancellationToken);
         if (existingProfile is not null)
@@ -41,7 +50,10 @@ public class CustomerProfileService : ICustomerProfileService
             DateOfBirth = request.DateOfBirth,
             PhoneNumber = request.PhoneNumber.Trim(),
             Address = request.Address.Trim(),
-            Status = CustomerStatus.Active
+            Status = CustomerStatus.Active,
+            IsBlacklisted = false,
+            BlacklistReason = null,
+            RiskLevel = RiskLevel.Low
         };
 
         await _repository.AddAsync(profile, cancellationToken);
@@ -71,10 +83,19 @@ public class CustomerProfileService : ICustomerProfileService
 
     public async Task<Result<CustomerProfileDto>> UpdateMyProfileAsync(Guid userId, UpdateCustomerProfileRequest request, CancellationToken cancellationToken = default)
     {
-        var errors = ValidateCreateOrUpdate(request.FirstName, request.LastName, request.PhoneNumber, request.Address, request.DateOfBirth);
+        var errors = ValidateCreateOrUpdate(
+            request.FirstName,
+            request.LastName,
+            request.PhoneNumber,
+            request.Address,
+            request.DateOfBirth);
 
         if (errors.Count > 0)
             return Result<CustomerProfileDto>.Failure("Validation failed.", errors);
+
+        var age = CalculateAge(request.DateOfBirth);
+        if (age < 18)
+            return Result<CustomerProfileDto>.Failure("Customer must be at least 18 years old.");
 
         var profile = await _repository.GetByUserIdAsync(userId, cancellationToken);
         if (profile is null)
@@ -120,6 +141,34 @@ public class CustomerProfileService : ICustomerProfileService
         return Result<CustomerProfileDto>.Success(Map(profile), "Customer profile fetched successfully.");
     }
 
+    public async Task<Result<InternalCustomerComplianceDto>> GetInternalComplianceByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var profile = await _repository.GetByIdAsync(id, cancellationToken);
+        if (profile is null)
+            return Result<InternalCustomerComplianceDto>.Failure("Customer profile not found.");
+
+        var age = CalculateAge(profile.DateOfBirth);
+        var isEligible =
+            age >= 18 &&
+            !profile.IsBlacklisted &&
+            profile.Status == CustomerStatus.Active;
+
+        var dto = new InternalCustomerComplianceDto
+        {
+            Id = profile.Id,
+            UserId = profile.UserId,
+            DateOfBirth = profile.DateOfBirth,
+            Age = age,
+            Status = profile.Status.ToString(),
+            IsBlacklisted = profile.IsBlacklisted,
+            BlacklistReason = profile.BlacklistReason,
+            RiskLevel = profile.RiskLevel.ToString(),
+            IsEligibleForBanking = isEligible
+        };
+
+        return Result<InternalCustomerComplianceDto>.Success(dto, "Customer compliance fetched successfully.");
+    }
+
     private static CustomerProfileDto Map(CustomerProfile profile)
     {
         return new CustomerProfileDto
@@ -131,8 +180,23 @@ public class CustomerProfileService : ICustomerProfileService
             DateOfBirth = profile.DateOfBirth,
             PhoneNumber = profile.PhoneNumber,
             Address = profile.Address,
-            Status = profile.Status.ToString()
+            Status = profile.Status.ToString(),
+            IsBlacklisted = profile.IsBlacklisted,
+            BlacklistReason = profile.BlacklistReason,
+            RiskLevel = profile.RiskLevel.ToString(),
+            Age = CalculateAge(profile.DateOfBirth)
         };
+    }
+
+    private static int CalculateAge(DateTime dateOfBirth)
+    {
+        var today = DateTime.UtcNow.Date;
+        var age = today.Year - dateOfBirth.Year;
+
+        if (dateOfBirth.Date > today.AddYears(-age))
+            age--;
+
+        return age;
     }
 
     private static List<string> ValidateCreateOrUpdate(

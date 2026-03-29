@@ -14,15 +14,18 @@ public class BankAccountService : IBankAccountService
     private readonly IBankAccountRepository _repository;
     private readonly IAccountNumberGenerator _accountNumberGenerator;
     private readonly IAuditLogger _auditLogger;
+    private readonly ICustomerServiceClient _customerServiceClient;
 
     public BankAccountService(
         IBankAccountRepository repository,
         IAccountNumberGenerator accountNumberGenerator,
-        IAuditLogger auditLogger)
+        IAuditLogger auditLogger,
+        ICustomerServiceClient customerServiceClient)
     {
         _repository = repository;
         _accountNumberGenerator = accountNumberGenerator;
         _auditLogger = auditLogger;
+        _customerServiceClient = customerServiceClient;
     }
 
     public async Task<Result<BankAccountDto>> CreateAsync(Guid userId, CreateBankAccountRequest request, CancellationToken cancellationToken = default)
@@ -40,6 +43,24 @@ public class BankAccountService : IBankAccountService
 
         if (errors.Count > 0)
             return Result<BankAccountDto>.Failure("Validation failed.", errors);
+
+        var complianceResult = await _customerServiceClient.GetCustomerComplianceAsync(request.CustomerProfileId, cancellationToken);
+        if (complianceResult.IsFailure || complianceResult.Data is null)
+            return Result<BankAccountDto>.Failure(complianceResult.Message, complianceResult.Errors);
+
+        if (complianceResult.Data.UserId != userId)
+            return Result<BankAccountDto>.Failure("Customer profile does not belong to the current user.");
+
+        if (!complianceResult.Data.IsEligibleForBanking)
+        {
+            if (complianceResult.Data.Age < 18)
+                return Result<BankAccountDto>.Failure("Customer must be at least 18 years old to open a bank account.");
+
+            if (complianceResult.Data.IsBlacklisted)
+                return Result<BankAccountDto>.Failure($"Customer is blacklisted. Reason: {complianceResult.Data.BlacklistReason}");
+
+            return Result<BankAccountDto>.Failure("Customer is not eligible for banking operations.");
+        }
 
         string accountNumber;
         do

@@ -20,6 +20,7 @@
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
+		<PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -28,10 +29,6 @@
 		<ProjectReference Include="..\..\..\BuildingBlocks\ZenoBank.BuildingBlocks.Shared.Messaging\ZenoBank.BuildingBlocks.Shared.Messaging.csproj" />
 		<ProjectReference Include="..\ZenoBank.Services.Account.Application\ZenoBank.Services.Account.Application.csproj" />
 		<ProjectReference Include="..\ZenoBank.Services.Account.Domain\ZenoBank.Services.Account.Domain.csproj" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<Folder Include="Configurations\" />
 	</ItemGroup>
 
 </Project>

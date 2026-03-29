@@ -16,4 +16,9 @@ public class CustomerProfile : AuditableEntity
     public string Address { get; set; } = string.Empty;
 
     public CustomerStatus Status { get; set; } = CustomerStatus.Active;
+
+    public bool IsBlacklisted { get; set; } = false;
+    public string? BlacklistReason { get; set; }
+
+    public RiskLevel RiskLevel { get; set; } = RiskLevel.Low;
 }

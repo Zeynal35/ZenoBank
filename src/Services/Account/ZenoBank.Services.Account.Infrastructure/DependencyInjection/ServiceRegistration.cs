@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ZenoBank.BuildingBlocks.Shared.Common.Abstractions;
 using ZenoBank.Services.Account.Application.Abstractions.Repositories;
 using ZenoBank.Services.Account.Application.Abstractions.Services;
+using ZenoBank.Services.Account.Infrastructure.Configurations;
 using ZenoBank.Services.Account.Infrastructure.Persistence;
 using ZenoBank.Services.Account.Infrastructure.Repositories;
 using ZenoBank.Services.Account.Infrastructure.Services;
@@ -14,12 +15,30 @@ public static class ServiceRegistration
 {
     public static IServiceCollection AddAccountInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        services.Configure<ServiceEndpoints>(configuration.GetSection(ServiceEndpoints.SectionName));
+
         services.AddDbContext<AccountDbContext>(options =>
         {
             options.UseSqlServer(configuration.GetConnectionString("DefaultConnection"));
         });
 
         services.AddHttpContextAccessor();
+
+        services.AddHttpClient<ICustomerServiceClient, CustomerServiceClient>((sp, client) =>
+        {
+            var endpoints = configuration.GetSection(ServiceEndpoints.SectionName).Get<ServiceEndpoints>();
+
+            if (endpoints is null || string.IsNullOrWhiteSpace(endpoints.CustomerApiBaseUrl))
+                throw new InvalidOperationException("ServiceEndpoints:CustomerApiBaseUrl is missing in configuration.");
+
+            client.BaseAddress = new Uri(endpoints.CustomerApiBaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(15);
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback =
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+        });
 
         services.AddScoped<IBankAccountRepository, BankAccountRepository>();
         services.AddScoped<IBankAccountService, BankAccountService>();
