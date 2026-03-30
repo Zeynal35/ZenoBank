@@ -169,6 +169,123 @@ public class CustomerProfileService : ICustomerProfileService
         return Result<InternalCustomerComplianceDto>.Success(dto, "Customer compliance fetched successfully.");
     }
 
+    public async Task<Result<CustomerProfileDto>> BlacklistAsync(Guid id, string reason, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            return Result<CustomerProfileDto>.Failure("Blacklist reason is required.");
+
+        var profile = await _repository.GetByIdAsync(id, cancellationToken);
+        if (profile is null)
+            return Result<CustomerProfileDto>.Failure("Customer profile not found.");
+
+        if (profile.IsBlacklisted)
+            return Result<CustomerProfileDto>.Failure("Customer is already blacklisted.");
+
+        profile.IsBlacklisted = true;
+        profile.BlacklistReason = reason.Trim();
+        profile.UpdatedAtUtc = DateTime.UtcNow;
+
+        _repository.Update(profile);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = profile.UserId,
+            Action = "CustomerBlacklisted",
+            EntityType = "CustomerProfile",
+            EntityId = profile.Id.ToString(),
+            Description = $"Customer blacklisted. Reason: {profile.BlacklistReason}",
+            Status = "Success"
+        }, cancellationToken);
+
+        return Result<CustomerProfileDto>.Success(Map(profile), "Customer blacklisted successfully.");
+    }
+
+    public async Task<Result<CustomerProfileDto>> RemoveFromBlacklistAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var profile = await _repository.GetByIdAsync(id, cancellationToken);
+        if (profile is null)
+            return Result<CustomerProfileDto>.Failure("Customer profile not found.");
+
+        if (!profile.IsBlacklisted)
+            return Result<CustomerProfileDto>.Failure("Customer is not blacklisted.");
+
+        profile.IsBlacklisted = false;
+        profile.BlacklistReason = null;
+        profile.UpdatedAtUtc = DateTime.UtcNow;
+
+        _repository.Update(profile);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = profile.UserId,
+            Action = "CustomerUnblacklisted",
+            EntityType = "CustomerProfile",
+            EntityId = profile.Id.ToString(),
+            Description = "Customer removed from blacklist.",
+            Status = "Success"
+        }, cancellationToken);
+
+        return Result<CustomerProfileDto>.Success(Map(profile), "Customer removed from blacklist successfully.");
+    }
+
+    public async Task<Result<CustomerProfileDto>> UpdateRiskLevelAsync(Guid id, int riskLevel, CancellationToken cancellationToken = default)
+    {
+        if (!Enum.IsDefined(typeof(RiskLevel), riskLevel))
+            return Result<CustomerProfileDto>.Failure("Invalid risk level.");
+
+        var profile = await _repository.GetByIdAsync(id, cancellationToken);
+        if (profile is null)
+            return Result<CustomerProfileDto>.Failure("Customer profile not found.");
+
+        profile.RiskLevel = (RiskLevel)riskLevel;
+        profile.UpdatedAtUtc = DateTime.UtcNow;
+
+        _repository.Update(profile);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = profile.UserId,
+            Action = "CustomerRiskUpdated",
+            EntityType = "CustomerProfile",
+            EntityId = profile.Id.ToString(),
+            Description = $"Customer risk level updated to {profile.RiskLevel}.",
+            Status = "Success"
+        }, cancellationToken);
+
+        return Result<CustomerProfileDto>.Success(Map(profile), "Customer risk level updated successfully.");
+    }
+
+    public async Task<Result<CustomerProfileDto>> UpdateStatusAsync(Guid id, int status, CancellationToken cancellationToken = default)
+    {
+        if (!Enum.IsDefined(typeof(CustomerStatus), status))
+            return Result<CustomerProfileDto>.Failure("Invalid customer status.");
+
+        var profile = await _repository.GetByIdAsync(id, cancellationToken);
+        if (profile is null)
+            return Result<CustomerProfileDto>.Failure("Customer profile not found.");
+
+        profile.Status = (CustomerStatus)status;
+        profile.UpdatedAtUtc = DateTime.UtcNow;
+
+        _repository.Update(profile);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = profile.UserId,
+            Action = "CustomerStatusUpdated",
+            EntityType = "CustomerProfile",
+            EntityId = profile.Id.ToString(),
+            Description = $"Customer status updated to {profile.Status}.",
+            Status = "Success"
+        }, cancellationToken);
+
+        return Result<CustomerProfileDto>.Success(Map(profile), "Customer status updated successfully.");
+    }
+
     private static CustomerProfileDto Map(CustomerProfile profile)
     {
         return new CustomerProfileDto

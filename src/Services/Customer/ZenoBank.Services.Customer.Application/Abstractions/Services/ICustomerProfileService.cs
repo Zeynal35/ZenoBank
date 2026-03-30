@@ -13,4 +13,9 @@ public interface ICustomerProfileService
     Task<Result<CustomerProfileDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<Result<InternalCustomerComplianceDto>> GetInternalComplianceByIdAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<Result<CustomerProfileDto>> BlacklistAsync(Guid id, string reason, CancellationToken cancellationToken = default);
+    Task<Result<CustomerProfileDto>> RemoveFromBlacklistAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<Result<CustomerProfileDto>> UpdateRiskLevelAsync(Guid id, int riskLevel, CancellationToken cancellationToken = default);
+    Task<Result<CustomerProfileDto>> UpdateStatusAsync(Guid id, int status, CancellationToken cancellationToken = default);
 }

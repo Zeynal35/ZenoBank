@@ -157,4 +157,100 @@ public class CustomerProfilesController : ControllerBase
             Data = result.Data
         });
     }
+
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [HttpPatch("{id:guid}/blacklist")]
+    public async Task<IActionResult> Blacklist(Guid id, [FromBody] BlacklistCustomerRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _customerProfileService.BlacklistAsync(id, request.Reason, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = result.Message,
+                Errors = result.Errors
+            });
+        }
+
+        return Ok(new ApiResponse<object>
+        {
+            Success = true,
+            Message = result.Message,
+            Data = result.Data
+        });
+    }
+
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [HttpPatch("{id:guid}/unblacklist")]
+    public async Task<IActionResult> Unblacklist(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await _customerProfileService.RemoveFromBlacklistAsync(id, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = result.Message,
+                Errors = result.Errors
+            });
+        }
+
+        return Ok(new ApiResponse<object>
+        {
+            Success = true,
+            Message = result.Message,
+            Data = result.Data
+        });
+    }
+
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [HttpPatch("{id:guid}/risk")]
+    public async Task<IActionResult> UpdateRisk(Guid id, [FromBody] UpdateCustomerRiskRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _customerProfileService.UpdateRiskLevelAsync(id, request.RiskLevel, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = result.Message,
+                Errors = result.Errors
+            });
+        }
+
+        return Ok(new ApiResponse<object>
+        {
+            Success = true,
+            Message = result.Message,
+            Data = result.Data
+        });
+    }
+
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    [HttpPatch("{id:guid}/status")]
+    public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateCustomerStatusRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _customerProfileService.UpdateStatusAsync(id, request.Status, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = result.Message,
+                Errors = result.Errors
+            });
+        }
+
+        return Ok(new ApiResponse<object>
+        {
+            Success = true,
+            Message = result.Message,
+            Data = result.Data
+        });
+    }
 }
