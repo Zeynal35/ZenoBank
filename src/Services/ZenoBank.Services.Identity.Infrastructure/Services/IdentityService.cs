@@ -1,6 +1,8 @@
 ﻿using ZenoBank.BuildingBlocks.Shared.Common.Abstractions;
 using ZenoBank.BuildingBlocks.Shared.Common.DTOs;
 using ZenoBank.BuildingBlocks.Shared.Common.Results;
+using ZenoBank.BuildingBlocks.Shared.Contracts.Events;
+using ZenoBank.BuildingBlocks.Shared.Messaging.Abstractions;
 using ZenoBank.Services.Identity.Application.Abstractions.Repositories;
 using ZenoBank.Services.Identity.Application.Abstractions.Services;
 using ZenoBank.Services.Identity.Application.DTOs;
@@ -17,6 +19,7 @@ public class IdentityService : IIdentityService
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenService _tokenService;
     private readonly IAuditLogger _auditLogger;
+    private readonly IEventPublisher _eventPublisher;
 
     public IdentityService(
         IUserRepository userRepository,
@@ -24,7 +27,8 @@ public class IdentityService : IIdentityService
         IRefreshTokenRepository refreshTokenRepository,
         IPasswordHasher passwordHasher,
         ITokenService tokenService,
-        IAuditLogger auditLogger)
+        IAuditLogger auditLogger,
+        IEventPublisher eventPublisher)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
@@ -32,6 +36,7 @@ public class IdentityService : IIdentityService
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
         _auditLogger = auditLogger;
+        _eventPublisher = eventPublisher;
     }
 
     public async Task<Result<UserDto>> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
@@ -149,6 +154,13 @@ public class IdentityService : IIdentityService
             Status = "Success"
         }, cancellationToken);
 
+        await _eventPublisher.PublishAsync(new UserLoggedInEvent
+        {
+            UserId = user.Id,
+            UserName = user.UserName,
+            LoggedInAtUtc = DateTime.UtcNow
+        }, cancellationToken);
+
         var response = new AuthResponse
         {
             AccessToken = accessToken,
@@ -245,6 +257,13 @@ public class IdentityService : IIdentityService
             Status = "Success"
         }, cancellationToken);
 
+        await _eventPublisher.PublishAsync(new UserLoggedOutEvent
+        {
+            UserId = existingRefreshToken.UserId,
+            UserName = existingRefreshToken.User.UserName,
+            LoggedOutAtUtc = DateTime.UtcNow
+        }, cancellationToken);
+
         return Result.Success("Logout successful.");
     }
 
@@ -307,5 +326,22 @@ public class IdentityService : IIdentityService
         };
 
         return Result<UserDto>.Success(userDto, "User fetched successfully.");
+    }
+
+    public async Task<Result<InternalUserContactDto>> GetInternalUserContactByIdAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+        if (user is null)
+            return Result<InternalUserContactDto>.Failure("User not found.");
+
+        var dto = new InternalUserContactDto
+        {
+            Id = user.Id,
+            UserName = user.UserName,
+            Email = user.Email,
+            IsActive = user.IsActive
+        };
+
+        return Result<InternalUserContactDto>.Success(dto, "Internal user contact fetched successfully.");
     }
 }

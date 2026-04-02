@@ -1,0 +1,6 @@
+@Zenobank.Services.Loan.API_HostAddress = http://localhost:5173
+
+GET {{Zenobank.Services.Loan.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

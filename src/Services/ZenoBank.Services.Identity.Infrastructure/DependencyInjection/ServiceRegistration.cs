@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ZenoBank.BuildingBlocks.Shared.Common.Abstractions;
+using ZenoBank.BuildingBlocks.Shared.Messaging.DependencyInjection;
 using ZenoBank.Services.Identity.Application.Abstractions.Repositories;
 using ZenoBank.Services.Identity.Application.Abstractions.Services;
 using ZenoBank.Services.Identity.Infrastructure.Configurations;
@@ -24,6 +25,7 @@ public static class ServiceRegistration
         });
 
         services.AddHttpContextAccessor();
+        services.AddSharedMessaging(configuration);
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();

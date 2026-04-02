@@ -1,6 +1,8 @@
 ﻿using ZenoBank.BuildingBlocks.Shared.Common.Abstractions;
 using ZenoBank.BuildingBlocks.Shared.Common.DTOs;
 using ZenoBank.BuildingBlocks.Shared.Common.Results;
+using ZenoBank.BuildingBlocks.Shared.Contracts.Events;
+using ZenoBank.BuildingBlocks.Shared.Messaging.Abstractions;
 using ZenoBank.Services.Account.Application.Abstractions.Repositories;
 using ZenoBank.Services.Account.Application.Abstractions.Services;
 using ZenoBank.Services.Account.Application.DTOs;
@@ -15,17 +17,20 @@ public class BankAccountService : IBankAccountService
     private readonly IAccountNumberGenerator _accountNumberGenerator;
     private readonly IAuditLogger _auditLogger;
     private readonly ICustomerServiceClient _customerServiceClient;
+    private readonly IEventPublisher _eventPublisher;
 
     public BankAccountService(
         IBankAccountRepository repository,
         IAccountNumberGenerator accountNumberGenerator,
         IAuditLogger auditLogger,
-        ICustomerServiceClient customerServiceClient)
+        ICustomerServiceClient customerServiceClient,
+        IEventPublisher eventPublisher)
     {
         _repository = repository;
         _accountNumberGenerator = accountNumberGenerator;
         _auditLogger = auditLogger;
         _customerServiceClient = customerServiceClient;
+        _eventPublisher = eventPublisher;
     }
 
     public async Task<Result<BankAccountDto>> CreateAsync(Guid userId, CreateBankAccountRequest request, CancellationToken cancellationToken = default)
@@ -173,6 +178,14 @@ public class BankAccountService : IBankAccountService
             Status = "Success"
         }, cancellationToken);
 
+        await _eventPublisher.PublishAsync(new AccountFrozenEvent
+        {
+            UserId = account.UserId,
+            AccountId = account.Id,
+            AccountNumber = account.AccountNumber,
+            FrozenAtUtc = DateTime.UtcNow
+        }, cancellationToken);
+
         return Result.Success("Account frozen successfully.");
     }
 
@@ -199,6 +212,14 @@ public class BankAccountService : IBankAccountService
             EntityId = account.Id.ToString(),
             Description = $"Bank account {account.AccountNumber} unfrozen.",
             Status = "Success"
+        }, cancellationToken);
+
+        await _eventPublisher.PublishAsync(new AccountUnfrozenEvent
+        {
+            UserId = account.UserId,
+            AccountId = account.Id,
+            AccountNumber = account.AccountNumber,
+            UnfrozenAtUtc = DateTime.UtcNow
         }, cancellationToken);
 
         return Result.Success("Account unfrozen successfully.");

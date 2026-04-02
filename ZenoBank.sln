@@ -71,6 +71,16 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZenoBank.BuildingBlocks.Sha
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZenoBank.BuildingBlocks.Shared.Messaging", "src\BuildingBlocks\ZenoBank.BuildingBlocks.Shared.Messaging\ZenoBank.BuildingBlocks.Shared.Messaging.csproj", "{893209A9-CE71-44D7-AC29-AD2CD7F6F06A}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Loan", "Loan", "{5C4DCD47-C348-46AA-BAD7-E0F90137AE26}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zenobank.Services.Loan.API", "src\Services\Loan\Zenobank.Services.Loan.API\Zenobank.Services.Loan.API.csproj", "{3CE302FA-514B-4825-8043-FDE2F987645E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZenoBank.Services.Loan.Application", "src\Services\Loan\ZenoBank.Services.Loan.Application\ZenoBank.Services.Loan.Application.csproj", "{8DF6C9A2-5D6F-402E-B1B0-B250034AC65F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZenoBank.Services.Loan.Domain", "src\Services\Loan\ZenoBank.Services.Loan.Domain\ZenoBank.Services.Loan.Domain.csproj", "{0EF398E9-3633-4205-B26A-50FAD66A3BE2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZenoBank.Services.Loan.Infrastructure", "src\Services\Loan\ZenoBank.Services.Loan.Infrastructure\ZenoBank.Services.Loan.Infrastructure.csproj", "{6F7CE76F-90AF-41ED-B61C-A54FFA41FFF8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -173,6 +183,22 @@ Global
 		{893209A9-CE71-44D7-AC29-AD2CD7F6F06A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{893209A9-CE71-44D7-AC29-AD2CD7F6F06A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{893209A9-CE71-44D7-AC29-AD2CD7F6F06A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3CE302FA-514B-4825-8043-FDE2F987645E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3CE302FA-514B-4825-8043-FDE2F987645E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3CE302FA-514B-4825-8043-FDE2F987645E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3CE302FA-514B-4825-8043-FDE2F987645E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8DF6C9A2-5D6F-402E-B1B0-B250034AC65F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8DF6C9A2-5D6F-402E-B1B0-B250034AC65F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8DF6C9A2-5D6F-402E-B1B0-B250034AC65F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8DF6C9A2-5D6F-402E-B1B0-B250034AC65F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0EF398E9-3633-4205-B26A-50FAD66A3BE2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0EF398E9-3633-4205-B26A-50FAD66A3BE2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0EF398E9-3633-4205-B26A-50FAD66A3BE2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0EF398E9-3633-4205-B26A-50FAD66A3BE2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6F7CE76F-90AF-41ED-B61C-A54FFA41FFF8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F7CE76F-90AF-41ED-B61C-A54FFA41FFF8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F7CE76F-90AF-41ED-B61C-A54FFA41FFF8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F7CE76F-90AF-41ED-B61C-A54FFA41FFF8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -210,6 +236,11 @@ Global
 		{198FAA6A-719A-4901-A7B3-004404601B1E} = {48FBC7BD-FB01-4B44-992B-466472BE88DD}
 		{87D69C99-8268-4A9C-AF4F-223A8F7FB577} = {48FBC7BD-FB01-4B44-992B-466472BE88DD}
 		{893209A9-CE71-44D7-AC29-AD2CD7F6F06A} = {48FBC7BD-FB01-4B44-992B-466472BE88DD}
+		{5C4DCD47-C348-46AA-BAD7-E0F90137AE26} = {56C29BCD-A2A7-4168-A9C4-176585DECC42}
+		{3CE302FA-514B-4825-8043-FDE2F987645E} = {5C4DCD47-C348-46AA-BAD7-E0F90137AE26}
+		{8DF6C9A2-5D6F-402E-B1B0-B250034AC65F} = {5C4DCD47-C348-46AA-BAD7-E0F90137AE26}
+		{0EF398E9-3633-4205-B26A-50FAD66A3BE2} = {5C4DCD47-C348-46AA-BAD7-E0F90137AE26}
+		{6F7CE76F-90AF-41ED-B61C-A54FFA41FFF8} = {5C4DCD47-C348-46AA-BAD7-E0F90137AE26}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {692E22C3-2EE6-4EE8-82EC-F868B8E1462D}

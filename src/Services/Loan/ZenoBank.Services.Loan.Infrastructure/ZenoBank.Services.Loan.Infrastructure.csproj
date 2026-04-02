@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MailKit" Version="4.15.1" />
+    <PackageReference Include="MimeKit" Version="4.15.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\ZenoBank.BuildingBlocks.Shared.Common\ZenoBank.BuildingBlocks.Shared.Common.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\ZenoBank.BuildingBlocks.Shared.Messaging\ZenoBank.BuildingBlocks.Shared.Messaging.csproj" />
+    <ProjectReference Include="..\ZenoBank.Services.Loan.Application\ZenoBank.Services.Loan.Application.csproj" />
+    <ProjectReference Include="..\ZenoBank.Services.Loan.Domain\ZenoBank.Services.Loan.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

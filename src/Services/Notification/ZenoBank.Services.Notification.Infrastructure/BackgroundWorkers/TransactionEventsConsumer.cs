@@ -1,12 +1,13 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System.Text;
+using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using System.Text;
-using System.Text.Json;
 using ZenoBank.BuildingBlocks.Shared.Contracts.Events;
 using ZenoBank.BuildingBlocks.Shared.Messaging.Configurations;
+using ZenoBank.Services.Notification.Application.Abstractions.Services;
 using ZenoBank.Services.Notification.Domain.Entities;
 using ZenoBank.Services.Notification.Domain.Enums;
 using ZenoBank.Services.Notification.Infrastructure.Persistence;
@@ -63,64 +64,175 @@ public class TransactionEventsConsumer : BackgroundService
             {
                 var body = ea.Body.ToArray();
                 var json = Encoding.UTF8.GetString(body);
-
                 var eventType = GetEventType(ea.BasicProperties);
 
                 using var scope = _scopeFactory.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
+                var identityClient = scope.ServiceProvider.GetRequiredService<IIdentityServiceClient>();
+                var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
+
+                Guid? userId = null;
+                string title = string.Empty;
+                string message = string.Empty;
+                string emailSubject = string.Empty;
+                string emailBody = string.Empty;
+                NotificationType notificationType = NotificationType.Deposit;
 
                 switch (eventType)
                 {
                     case nameof(DepositCompletedEvent):
                         {
                             var @event = JsonSerializer.Deserialize<DepositCompletedEvent>(json);
-                            if (@event is not null)
-                            {
-                                await dbContext.Notifications.AddAsync(new NotificationRecord
-                                {
-                                    UserId = @event.UserId,
-                                    Title = "Deposit completed",
-                                    Message = $"Deposit of {@event.Amount} {@event.Currency} completed successfully. Ref: {@event.TransactionReference}",
-                                    NotificationType = NotificationType.Deposit
-                                }, stoppingToken);
-                            }
+                            if (@event is null) break;
+
+                            userId = @event.UserId;
+                            title = "Deposit completed";
+                            message = $"Deposit of {@event.Amount} {@event.Currency} completed successfully. Ref: {@event.TransactionReference}";
+                            emailSubject = "ZenoBank - Deposit notification";
+                            emailBody = BuildEmailHtml("Deposit completed", message);
+                            notificationType = NotificationType.Deposit;
                             break;
                         }
 
                     case nameof(WithdrawCompletedEvent):
                         {
                             var @event = JsonSerializer.Deserialize<WithdrawCompletedEvent>(json);
-                            if (@event is not null)
-                            {
-                                await dbContext.Notifications.AddAsync(new NotificationRecord
-                                {
-                                    UserId = @event.UserId,
-                                    Title = "Withdraw completed",
-                                    Message = $"Withdraw of {@event.Amount} {@event.Currency} completed successfully. Ref: {@event.TransactionReference}",
-                                    NotificationType = NotificationType.Withdraw
-                                }, stoppingToken);
-                            }
+                            if (@event is null) break;
+
+                            userId = @event.UserId;
+                            title = "Withdraw completed";
+                            message = $"Withdraw of {@event.Amount} {@event.Currency} completed successfully. Ref: {@event.TransactionReference}";
+                            emailSubject = "ZenoBank - Withdraw notification";
+                            emailBody = BuildEmailHtml("Withdraw completed", message);
+                            notificationType = NotificationType.Withdraw;
                             break;
                         }
 
                     case nameof(TransferCompletedEvent):
                         {
                             var @event = JsonSerializer.Deserialize<TransferCompletedEvent>(json);
-                            if (@event is not null)
-                            {
-                                await dbContext.Notifications.AddAsync(new NotificationRecord
-                                {
-                                    UserId = @event.UserId,
-                                    Title = "Transfer completed",
-                                    Message = $"Transfer of {@event.Amount} {@event.Currency} completed successfully. Ref: {@event.TransactionReference}",
-                                    NotificationType = NotificationType.Transfer
-                                }, stoppingToken);
-                            }
+                            if (@event is null) break;
+
+                            userId = @event.UserId;
+                            title = "Transfer completed";
+                            message = $"Transfer of {@event.Amount} {@event.Currency} completed successfully. Ref: {@event.TransactionReference}";
+                            emailSubject = "ZenoBank - Transfer notification";
+                            emailBody = BuildEmailHtml("Transfer completed", message);
+                            notificationType = NotificationType.Transfer;
+                            break;
+                        }
+
+                    case nameof(UserLoggedInEvent):
+                        {
+                            var @event = JsonSerializer.Deserialize<UserLoggedInEvent>(json);
+                            if (@event is null) break;
+
+                            userId = @event.UserId;
+                            title = "Login detected";
+                            message = $"A login occurred on your ZenoBank account at {@event.LoggedInAtUtc:u}. If this was not you, contact support immediately.";
+                            emailSubject = "ZenoBank security alert - Login detected";
+                            emailBody = BuildEmailHtml("Login detected", message);
+                            notificationType = NotificationType.Security;
+                            break;
+                        }
+
+                    case nameof(UserLoggedOutEvent):
+                        {
+                            var @event = JsonSerializer.Deserialize<UserLoggedOutEvent>(json);
+                            if (@event is null) break;
+
+                            userId = @event.UserId;
+                            title = "Logout completed";
+                            message = $"Your ZenoBank account was logged out at {@event.LoggedOutAtUtc:u}.";
+                            emailSubject = "ZenoBank - Logout notification";
+                            emailBody = BuildEmailHtml("Logout completed", message);
+                            notificationType = NotificationType.Security;
+                            break;
+                        }
+
+                    case nameof(AccountFrozenEvent):
+                        {
+                            var @event = JsonSerializer.Deserialize<AccountFrozenEvent>(json);
+                            if (@event is null) break;
+
+                            userId = @event.UserId;
+                            title = "Account frozen";
+                            message = $"Your bank account {@event.AccountNumber} was frozen at {@event.FrozenAtUtc:u}.";
+                            emailSubject = "ZenoBank - Account frozen";
+                            emailBody = BuildEmailHtml("Account frozen", message);
+                            notificationType = NotificationType.Account;
+                            break;
+                        }
+
+                    case nameof(AccountUnfrozenEvent):
+                        {
+                            var @event = JsonSerializer.Deserialize<AccountUnfrozenEvent>(json);
+                            if (@event is null) break;
+
+                            userId = @event.UserId;
+                            title = "Account unfrozen";
+                            message = $"Your bank account {@event.AccountNumber} was unfrozen at {@event.UnfrozenAtUtc:u}.";
+                            emailSubject = "ZenoBank - Account unfrozen";
+                            emailBody = BuildEmailHtml("Account unfrozen", message);
+                            notificationType = NotificationType.Account;
+                            break;
+                        }
+
+                    case nameof(LoanApprovedEvent):
+                        {
+                            var @event = JsonSerializer.Deserialize<LoanApprovedEvent>(json);
+                            if (@event is null) break;
+
+                            userId = @event.UserId;
+                            title = "Loan approved";
+                            message = $"Your loan request was approved. Principal: {@event.PrincipalAmount} {@event.Currency}, Interest: {@event.InterestRate}%, Monthly payment: {@event.MonthlyPayment} {@event.Currency}.";
+                            emailSubject = "ZenoBank - Loan approved";
+                            emailBody = BuildEmailHtml("Loan approved", message);
+                            notificationType = NotificationType.Loan;
+                            break;
+                        }
+
+                    case nameof(LoanRejectedEvent):
+                        {
+                            var @event = JsonSerializer.Deserialize<LoanRejectedEvent>(json);
+                            if (@event is null) break;
+
+                            userId = @event.UserId;
+                            title = "Loan rejected";
+                            message = $"Your loan request was rejected. Reason: {@event.Reason}";
+                            emailSubject = "ZenoBank - Loan rejected";
+                            emailBody = BuildEmailHtml("Loan rejected", message);
+                            notificationType = NotificationType.Loan;
                             break;
                         }
                 }
 
+                if (userId is null || string.IsNullOrWhiteSpace(title))
+                {
+                    _channel!.BasicAck(ea.DeliveryTag, false);
+                    return;
+                }
+
+                await dbContext.Notifications.AddAsync(new NotificationRecord
+                {
+                    UserId = userId.Value,
+                    Title = title,
+                    Message = message,
+                    NotificationType = notificationType
+                }, stoppingToken);
+
                 await dbContext.SaveChangesAsync(stoppingToken);
+
+                var userResult = await identityClient.GetUserContactAsync(userId.Value, stoppingToken);
+                if (userResult.IsSuccess && userResult.Data is not null && !string.IsNullOrWhiteSpace(userResult.Data.Email))
+                {
+                    await emailSender.SendAsync(
+                        userResult.Data.Email,
+                        userResult.Data.UserName,
+                        emailSubject,
+                        emailBody,
+                        stoppingToken);
+                }
 
                 _channel!.BasicAck(ea.DeliveryTag, false);
             }
@@ -155,5 +267,18 @@ public class TransactionEventsConsumer : BackgroundService
             byte[] bytes => Encoding.UTF8.GetString(bytes),
             _ => value.ToString() ?? string.Empty
         };
+    }
+
+    private static string BuildEmailHtml(string title, string message)
+    {
+        return $"""
+                <html>
+                <body style="font-family:Arial,sans-serif;">
+                    <h2>{title}</h2>
+                    <p>{message}</p>
+                    <p>Regards,<br/>ZenoBank</p>
+                </body>
+                </html>
+                """;
     }
 }

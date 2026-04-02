@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ZenoBank.BuildingBlocks.Shared.Common.Abstractions;
+using ZenoBank.BuildingBlocks.Shared.Messaging.DependencyInjection;
 using ZenoBank.Services.Account.Application.Abstractions.Repositories;
 using ZenoBank.Services.Account.Application.Abstractions.Services;
 using ZenoBank.Services.Account.Infrastructure.Configurations;
@@ -23,6 +24,7 @@ public static class ServiceRegistration
         });
 
         services.AddHttpContextAccessor();
+        services.AddSharedMessaging(configuration);
 
         services.AddHttpClient<ICustomerServiceClient, CustomerServiceClient>((sp, client) =>
         {
