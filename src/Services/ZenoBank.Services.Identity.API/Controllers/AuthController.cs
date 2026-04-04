@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using ZenoBank.BuildingBlocks.Shared.Common.Responses;
 using ZenoBank.Services.Identity.Application.Abstractions.Services;
 using ZenoBank.Services.Identity.Application.DTOs;
@@ -10,10 +11,14 @@ namespace ZenoBank.Services.Identity.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IIdentityService _identityService;
+    private readonly ICurrentUserService _currentUserService;
 
-    public AuthController(IIdentityService identityService)
+    public AuthController(
+        IIdentityService identityService,
+        ICurrentUserService currentUserService)
     {
         _identityService = identityService;
+        _currentUserService = currentUserService;
     }
 
     [HttpPost("register")]
@@ -104,6 +109,83 @@ public class AuthController : ControllerBase
         {
             Success = true,
             Message = result.Message
+        });
+    }
+
+    [HttpPost("confirm-email")]
+    public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _identityService.ConfirmEmailAsync(request.Token, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = result.Message,
+                Errors = result.Errors
+            });
+        }
+
+        return Ok(new ApiResponse<object>
+        {
+            Success = true,
+            Message = result.Message
+        });
+    }
+
+    [HttpPost("resend-verification-email")]
+    public async Task<IActionResult> ResendVerificationEmail([FromBody] ResendVerificationEmailRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _identityService.ResendVerificationEmailAsync(request.Email, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = result.Message,
+                Errors = result.Errors
+            });
+        }
+
+        return Ok(new ApiResponse<object>
+        {
+            Success = true,
+            Message = result.Message
+        });
+    }
+
+    [Authorize]
+    [HttpGet("me")]
+    public async Task<IActionResult> Me(CancellationToken cancellationToken)
+    {
+        if (_currentUserService.UserId is null)
+        {
+            return Unauthorized(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "User is not authenticated."
+            });
+        }
+
+        var result = await _identityService.GetCurrentUserAsync(_currentUserService.UserId.Value, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return NotFound(new ApiResponse<object>
+            {
+                Success = false,
+                Message = result.Message,
+                Errors = result.Errors
+            });
+        }
+
+        return Ok(new ApiResponse<object>
+        {
+            Success = true,
+            Message = result.Message,
+            Data = result.Data
         });
     }
 }

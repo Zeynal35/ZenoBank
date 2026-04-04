@@ -76,7 +76,10 @@ public class TransactionEventsConsumer : BackgroundService
                 string message = string.Empty;
                 string emailSubject = string.Empty;
                 string emailBody = string.Empty;
+                string directEmail = string.Empty;
+                string directUserName = string.Empty;
                 NotificationType notificationType = NotificationType.Deposit;
+                var createInAppNotification = true;
 
                 switch (eventType)
                 {
@@ -205,33 +208,55 @@ public class TransactionEventsConsumer : BackgroundService
                             notificationType = NotificationType.Loan;
                             break;
                         }
+
+                    case nameof(EmailVerificationRequestedEvent):
+                        {
+                            var @event = JsonSerializer.Deserialize<EmailVerificationRequestedEvent>(json);
+                            if (@event is null) break;
+
+                            directEmail = @event.Email;
+                            directUserName = @event.UserName;
+                            emailSubject = "ZenoBank - Verify your email";
+                            emailBody = BuildEmailHtml(
+                                "Verify your email",
+                                $"Use this verification token to confirm your email: <b>{@event.VerificationToken}</b><br/>Token expires at: {@event.ExpiresAtUtc:u}");
+
+                            createInAppNotification = false;
+                            break;
+                        }
                 }
 
-                if (userId is null || string.IsNullOrWhiteSpace(title))
+                if (createInAppNotification && userId is not null && !string.IsNullOrWhiteSpace(title))
                 {
-                    _channel!.BasicAck(ea.DeliveryTag, false);
-                    return;
+                    await dbContext.Notifications.AddAsync(new NotificationRecord
+                    {
+                        UserId = userId.Value,
+                        Title = title,
+                        Message = message,
+                        NotificationType = notificationType
+                    }, stoppingToken);
+
+                    await dbContext.SaveChangesAsync(stoppingToken);
                 }
 
-                await dbContext.Notifications.AddAsync(new NotificationRecord
+                if (!string.IsNullOrWhiteSpace(directEmail))
                 {
-                    UserId = userId.Value,
-                    Title = title,
-                    Message = message,
-                    NotificationType = notificationType
-                }, stoppingToken);
-
-                await dbContext.SaveChangesAsync(stoppingToken);
-
-                var userResult = await identityClient.GetUserContactAsync(userId.Value, stoppingToken);
-                if (userResult.IsSuccess && userResult.Data is not null && !string.IsNullOrWhiteSpace(userResult.Data.Email))
+                    await emailSender.SendAsync(directEmail, directUserName, emailSubject, emailBody, stoppingToken);
+                }
+                else if (userId is not null)
                 {
-                    await emailSender.SendAsync(
-                        userResult.Data.Email,
-                        userResult.Data.UserName,
-                        emailSubject,
-                        emailBody,
-                        stoppingToken);
+                    var userResult = await identityClient.GetUserContactAsync(userId.Value, stoppingToken);
+                    if (userResult.IsSuccess && userResult.Data is not null &&
+                        !string.IsNullOrWhiteSpace(userResult.Data.Email) &&
+                        userResult.Data.EmailConfirmed)
+                    {
+                        await emailSender.SendAsync(
+                            userResult.Data.Email,
+                            userResult.Data.UserName,
+                            emailSubject,
+                            emailBody,
+                            stoppingToken);
+                    }
                 }
 
                 _channel!.BasicAck(ea.DeliveryTag, false);

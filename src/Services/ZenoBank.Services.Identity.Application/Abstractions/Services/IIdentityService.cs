@@ -12,4 +12,7 @@ public interface IIdentityService
     Task<Result> AssignRoleAsync(AssignRoleRequest request, CancellationToken cancellationToken = default);
     Task<Result<UserDto>> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<Result<InternalUserContactDto>> GetInternalUserContactByIdAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    Task<Result> ConfirmEmailAsync(string token, CancellationToken cancellationToken = default);
+    Task<Result> ResendVerificationEmailAsync(string email, CancellationToken cancellationToken = default);
 }

@@ -14,6 +14,7 @@ public class IdentityDbContext : DbContext
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -79,6 +80,21 @@ public class IdentityDbContext : DbContext
 
             entity.HasOne(x => x.User)
                 .WithMany(x => x.RefreshTokens)
+                .HasForeignKey(x => x.UserId);
+        });
+
+        modelBuilder.Entity<EmailVerificationToken>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Token)
+                .IsRequired();
+
+            entity.HasIndex(x => x.Token)
+                .IsUnique();
+
+            entity.HasOne(x => x.User)
+                .WithMany(x => x.EmailVerificationTokens)
                 .HasForeignKey(x => x.UserId);
         });
 

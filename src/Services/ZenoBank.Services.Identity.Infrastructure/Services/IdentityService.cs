@@ -1,4 +1,5 @@
-﻿using ZenoBank.BuildingBlocks.Shared.Common.Abstractions;
+﻿using System.Net.Mail;
+using ZenoBank.BuildingBlocks.Shared.Common.Abstractions;
 using ZenoBank.BuildingBlocks.Shared.Common.DTOs;
 using ZenoBank.BuildingBlocks.Shared.Common.Results;
 using ZenoBank.BuildingBlocks.Shared.Contracts.Events;
@@ -16,6 +17,7 @@ public class IdentityService : IIdentityService
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
+    private readonly IEmailVerificationTokenRepository _emailVerificationTokenRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenService _tokenService;
     private readonly IAuditLogger _auditLogger;
@@ -25,6 +27,7 @@ public class IdentityService : IIdentityService
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IRefreshTokenRepository refreshTokenRepository,
+        IEmailVerificationTokenRepository emailVerificationTokenRepository,
         IPasswordHasher passwordHasher,
         ITokenService tokenService,
         IAuditLogger auditLogger,
@@ -33,6 +36,7 @@ public class IdentityService : IIdentityService
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _refreshTokenRepository = refreshTokenRepository;
+        _emailVerificationTokenRepository = emailVerificationTokenRepository;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
         _auditLogger = auditLogger;
@@ -49,6 +53,9 @@ public class IdentityService : IIdentityService
         if (string.IsNullOrWhiteSpace(request.Email))
             errors.Add("Email is required.");
 
+        if (!IsValidEmail(request.Email))
+            errors.Add("Email format is invalid.");
+
         if (string.IsNullOrWhiteSpace(request.Password))
             errors.Add("Password is required.");
 
@@ -58,11 +65,13 @@ public class IdentityService : IIdentityService
         if (errors.Count > 0)
             return Result<UserDto>.Failure("Validation failed.", errors);
 
+        var normalizedEmail = request.Email.Trim().ToLower();
+
         var existingByUserName = await _userRepository.GetByUserNameAsync(request.UserName, cancellationToken);
         if (existingByUserName is not null)
             return Result<UserDto>.Failure("Username already exists.");
 
-        var existingByEmail = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
+        var existingByEmail = await _userRepository.GetByEmailAsync(normalizedEmail, cancellationToken);
         if (existingByEmail is not null)
             return Result<UserDto>.Failure("Email already exists.");
 
@@ -73,9 +82,10 @@ public class IdentityService : IIdentityService
         var user = new User
         {
             UserName = request.UserName.Trim(),
-            Email = request.Email.Trim().ToLower(),
+            Email = normalizedEmail,
             PasswordHash = _passwordHasher.HashPassword(request.Password),
-            IsActive = true
+            IsActive = true,
+            EmailConfirmed = false
         };
 
         user.UserRoles.Add(new UserRole
@@ -89,6 +99,17 @@ public class IdentityService : IIdentityService
         await _userRepository.AddAsync(user, cancellationToken);
         await _userRepository.SaveChangesAsync(cancellationToken);
 
+        var verificationToken = new EmailVerificationToken
+        {
+            UserId = user.Id,
+            Token = Guid.NewGuid().ToString("N"),
+            ExpiresAtUtc = DateTime.UtcNow.AddHours(24),
+            IsUsed = false
+        };
+
+        await _emailVerificationTokenRepository.AddAsync(verificationToken, cancellationToken);
+        await _emailVerificationTokenRepository.SaveChangesAsync(cancellationToken);
+
         await _auditLogger.WriteAsync(new CreateAuditLogRequest
         {
             UserId = user.Id,
@@ -99,15 +120,25 @@ public class IdentityService : IIdentityService
             Status = "Success"
         }, cancellationToken);
 
+        await _eventPublisher.PublishAsync(new EmailVerificationRequestedEvent
+        {
+            UserId = user.Id,
+            UserName = user.UserName,
+            Email = user.Email,
+            VerificationToken = verificationToken.Token,
+            ExpiresAtUtc = verificationToken.ExpiresAtUtc
+        }, cancellationToken);
+
         var userDto = new UserDto
         {
             Id = user.Id,
             UserName = user.UserName,
             Email = user.Email,
+            EmailConfirmed = user.EmailConfirmed,
             Roles = user.UserRoles.Select(x => x.Role.Name).ToList()
         };
 
-        return Result<UserDto>.Success(userDto, "User registered successfully.");
+        return Result<UserDto>.Success(userDto, "User registered successfully. Please verify your email before login.");
     }
 
     public async Task<Result<AuthResponse>> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
@@ -121,6 +152,9 @@ public class IdentityService : IIdentityService
 
         if (!user.IsActive)
             return Result<AuthResponse>.Failure("User is inactive.");
+
+        if (!user.EmailConfirmed)
+            return Result<AuthResponse>.Failure("Email address is not verified.");
 
         var passwordValid = _passwordHasher.VerifyPassword(request.Password, user.PasswordHash);
         if (!passwordValid)
@@ -189,6 +223,9 @@ public class IdentityService : IIdentityService
         var user = existingRefreshToken.User;
         if (!user.IsActive)
             return Result<AuthResponse>.Failure("User is inactive.");
+
+        if (!user.EmailConfirmed)
+            return Result<AuthResponse>.Failure("Email address is not verified.");
 
         existingRefreshToken.IsRevoked = true;
         _refreshTokenRepository.Update(existingRefreshToken);
@@ -322,6 +359,7 @@ public class IdentityService : IIdentityService
             Id = user.Id,
             UserName = user.UserName,
             Email = user.Email,
+            EmailConfirmed = user.EmailConfirmed,
             Roles = user.UserRoles.Select(x => x.Role.Name).ToList()
         };
 
@@ -339,9 +377,113 @@ public class IdentityService : IIdentityService
             Id = user.Id,
             UserName = user.UserName,
             Email = user.Email,
-            IsActive = user.IsActive
+            IsActive = user.IsActive,
+            EmailConfirmed = user.EmailConfirmed
         };
 
         return Result<InternalUserContactDto>.Success(dto, "Internal user contact fetched successfully.");
+    }
+
+    public async Task<Result> ConfirmEmailAsync(string token, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return Result.Failure("Verification token is required.");
+
+        var verificationToken = await _emailVerificationTokenRepository.GetByTokenAsync(token, cancellationToken);
+        if (verificationToken is null)
+            return Result.Failure("Verification token is invalid.");
+
+        if (verificationToken.IsUsed)
+            return Result.Failure("Verification token has already been used.");
+
+        if (verificationToken.ExpiresAtUtc <= DateTime.UtcNow)
+            return Result.Failure("Verification token has expired.");
+
+        verificationToken.IsUsed = true;
+        _emailVerificationTokenRepository.Update(verificationToken);
+
+        verificationToken.User.EmailConfirmed = true;
+        _userRepository.Update(verificationToken.User);
+
+        await _emailVerificationTokenRepository.SaveChangesAsync(cancellationToken);
+        await _userRepository.SaveChangesAsync(cancellationToken);
+
+        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        {
+            UserId = verificationToken.UserId,
+            Action = "EmailConfirmed",
+            EntityType = "User",
+            EntityId = verificationToken.UserId.ToString(),
+            Description = $"Email confirmed for user {verificationToken.User.UserName}.",
+            Status = "Success"
+        }, cancellationToken);
+
+        return Result.Success("Email confirmed successfully.");
+    }
+
+    public async Task<Result> ResendVerificationEmailAsync(string email, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return Result.Failure("Email is required.");
+
+        if (!IsValidEmail(email))
+            return Result.Failure("Email format is invalid.");
+
+        var user = await _userRepository.GetByEmailAsync(email.Trim().ToLower(), cancellationToken);
+        if (user is null)
+            return Result.Failure("User not found.");
+
+        if (user.EmailConfirmed)
+            return Result.Failure("Email is already confirmed.");
+
+        var latestToken = await _emailVerificationTokenRepository.GetLatestActiveByUserIdAsync(user.Id, cancellationToken);
+        if (latestToken is not null)
+        {
+            await _eventPublisher.PublishAsync(new EmailVerificationRequestedEvent
+            {
+                UserId = user.Id,
+                UserName = user.UserName,
+                Email = user.Email,
+                VerificationToken = latestToken.Token,
+                ExpiresAtUtc = latestToken.ExpiresAtUtc
+            }, cancellationToken);
+
+            return Result.Success("Verification email resent successfully.");
+        }
+
+        var verificationToken = new EmailVerificationToken
+        {
+            UserId = user.Id,
+            Token = Guid.NewGuid().ToString("N"),
+            ExpiresAtUtc = DateTime.UtcNow.AddHours(24),
+            IsUsed = false
+        };
+
+        await _emailVerificationTokenRepository.AddAsync(verificationToken, cancellationToken);
+        await _emailVerificationTokenRepository.SaveChangesAsync(cancellationToken);
+
+        await _eventPublisher.PublishAsync(new EmailVerificationRequestedEvent
+        {
+            UserId = user.Id,
+            UserName = user.UserName,
+            Email = user.Email,
+            VerificationToken = verificationToken.Token,
+            ExpiresAtUtc = verificationToken.ExpiresAtUtc
+        }, cancellationToken);
+
+        return Result.Success("Verification email resent successfully.");
+    }
+
+    private static bool IsValidEmail(string email)
+    {
+        try
+        {
+            var _ = new MailAddress(email);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }
