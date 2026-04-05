@@ -7,13 +7,11 @@ namespace ZenoBank.Services.Identity.Infrastructure.Seeders;
 
 public static class RoleSeeder
 {
-    public static async Task SeedAsync(IdentityDbContext context)
+    public static async Task SeedAsync(IdentityDbContext dbContext)
     {
-        var existingRoleNames = await context.Roles
-            .Select(x => x.Name)
-            .ToListAsync();
+        var existingRoles = await dbContext.Roles.ToListAsync();
 
-        var rolesToSeed = new List<string>
+        var requiredRoles = new[]
         {
             RoleNames.SuperAdmin,
             RoleNames.Admin,
@@ -21,18 +19,18 @@ public static class RoleSeeder
             RoleNames.Customer
         };
 
-        var newRoles = rolesToSeed
-            .Where(roleName => !existingRoleNames.Contains(roleName))
-            .Select(roleName => new Role
+        foreach (var roleName in requiredRoles)
+        {
+            var exists = existingRoles.Any(x => x.Name == roleName);
+            if (!exists)
             {
-                Name = roleName
-            })
-            .ToList();
+                await dbContext.Roles.AddAsync(new Role
+                {
+                    Name = roleName
+                });
+            }
+        }
 
-        if (newRoles.Count == 0)
-            return;
-
-        await context.Roles.AddRangeAsync(newRoles);
-        await context.SaveChangesAsync();
+        await dbContext.SaveChangesAsync();
     }
 }

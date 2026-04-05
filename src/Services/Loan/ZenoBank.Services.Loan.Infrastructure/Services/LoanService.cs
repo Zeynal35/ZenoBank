@@ -69,6 +69,9 @@ public class LoanService : ILoanService
             if (compliance.Age < 18)
                 return Result<LoanApplicationDto>.Failure("Customer must be at least 18 years old to request a loan.");
 
+            if (!compliance.IsKycApproved)
+                return Result<LoanApplicationDto>.Failure($"KYC is not approved. Current KYC status: {compliance.KycStatus}");
+
             if (compliance.IsBlacklisted)
                 return Result<LoanApplicationDto>.Failure($"Customer is blacklisted. Reason: {compliance.BlacklistReason}");
 

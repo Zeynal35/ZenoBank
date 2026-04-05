@@ -15,5 +15,8 @@ public class InternalCustomerComplianceSnapshotDto
 
     public string RiskLevel { get; set; } = string.Empty;
 
+    public bool IsKycApproved { get; set; }
+    public string KycStatus { get; set; } = string.Empty;
+
     public bool IsEligibleForBanking { get; set; }
 }

@@ -11,6 +11,7 @@ public class CustomerDbContext : DbContext
     }
 
     public DbSet<CustomerProfile> CustomerProfiles => Set<CustomerProfile>();
+    public DbSet<KycDocument> KycDocuments => Set<KycDocument>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -21,33 +22,29 @@ public class CustomerDbContext : DbContext
         {
             entity.HasKey(x => x.Id);
 
-            entity.Property(x => x.FirstName)
-                .IsRequired()
-                .HasMaxLength(100);
+            entity.Property(x => x.FirstName).IsRequired().HasMaxLength(100);
+            entity.Property(x => x.LastName).IsRequired().HasMaxLength(100);
+            entity.Property(x => x.PhoneNumber).IsRequired().HasMaxLength(30);
+            entity.Property(x => x.Address).IsRequired().HasMaxLength(500);
+            entity.Property(x => x.Status).IsRequired();
+            entity.Property(x => x.BlacklistReason).HasMaxLength(500);
+            entity.Property(x => x.RiskLevel).IsRequired();
 
-            entity.Property(x => x.LastName)
-                .IsRequired()
-                .HasMaxLength(100);
+            entity.HasIndex(x => x.UserId).IsUnique();
+        });
 
-            entity.Property(x => x.PhoneNumber)
-                .IsRequired()
-                .HasMaxLength(30);
+        modelBuilder.Entity<KycDocument>(entity =>
+        {
+            entity.HasKey(x => x.Id);
 
-            entity.Property(x => x.Address)
-                .IsRequired()
-                .HasMaxLength(500);
+            entity.Property(x => x.DocumentNumber).IsRequired().HasMaxLength(100);
+            entity.Property(x => x.OriginalFileName).IsRequired().HasMaxLength(255);
+            entity.Property(x => x.StoredFileName).IsRequired().HasMaxLength(255);
+            entity.Property(x => x.FilePath).IsRequired().HasMaxLength(500);
+            entity.Property(x => x.ReviewerNote).HasMaxLength(1000);
 
-            entity.Property(x => x.Status)
-                .IsRequired();
-
-            entity.Property(x => x.BlacklistReason)
-                .HasMaxLength(500);
-
-            entity.Property(x => x.RiskLevel)
-                .IsRequired();
-
-            entity.HasIndex(x => x.UserId)
-                .IsUnique();
+            entity.HasIndex(x => x.UserId);
+            entity.HasIndex(x => x.CustomerProfileId);
         });
 
         modelBuilder.Entity<AuditLog>(entity =>

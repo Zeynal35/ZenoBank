@@ -61,6 +61,9 @@ public class BankAccountService : IBankAccountService
             if (complianceResult.Data.Age < 18)
                 return Result<BankAccountDto>.Failure("Customer must be at least 18 years old to open a bank account.");
 
+            if (!complianceResult.Data.IsKycApproved)
+                return Result<BankAccountDto>.Failure($"KYC is not approved. Current KYC status: {complianceResult.Data.KycStatus}");
+
             if (complianceResult.Data.IsBlacklisted)
                 return Result<BankAccountDto>.Failure($"Customer is blacklisted. Reason: {complianceResult.Data.BlacklistReason}");
 

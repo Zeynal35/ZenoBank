@@ -26,6 +26,10 @@ public static class ServiceRegistration
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IAuditLogger, CustomerAuditLogger>();
 
+        services.AddScoped<IKycDocumentRepository, KycDocumentRepository>();
+        services.AddScoped<IKycDocumentService, KycDocumentService>();
+        services.AddScoped<IKycFileStorage, KycLocalFileStorage>();
+
         return services;
     }
 }

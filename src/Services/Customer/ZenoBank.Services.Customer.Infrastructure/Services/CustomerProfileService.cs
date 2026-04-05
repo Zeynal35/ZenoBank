@@ -12,13 +12,16 @@ namespace ZenoBank.Services.Customer.Infrastructure.Services;
 public class CustomerProfileService : ICustomerProfileService
 {
     private readonly ICustomerProfileRepository _repository;
+    private readonly IKycDocumentRepository _kycDocumentRepository;
     private readonly IAuditLogger _auditLogger;
 
     public CustomerProfileService(
         ICustomerProfileRepository repository,
+        IKycDocumentRepository kycDocumentRepository,
         IAuditLogger auditLogger)
     {
         _repository = repository;
+        _kycDocumentRepository = kycDocumentRepository;
         _auditLogger = auditLogger;
     }
 
@@ -127,9 +130,7 @@ public class CustomerProfileService : ICustomerProfileService
     public async Task<Result<List<CustomerProfileDto>>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         var profiles = await _repository.GetAllAsync(cancellationToken);
-        var data = profiles.Select(Map).ToList();
-
-        return Result<List<CustomerProfileDto>>.Success(data, "Customer profiles fetched successfully.");
+        return Result<List<CustomerProfileDto>>.Success(profiles.Select(Map).ToList(), "Customer profiles fetched successfully.");
     }
 
     public async Task<Result<CustomerProfileDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -147,11 +148,16 @@ public class CustomerProfileService : ICustomerProfileService
         if (profile is null)
             return Result<InternalCustomerComplianceDto>.Failure("Customer profile not found.");
 
+        var latestKyc = await _kycDocumentRepository.GetLatestByCustomerProfileIdAsync(id, cancellationToken);
+        var kycApproved = latestKyc?.Status == KycDocumentStatus.Approved;
+        var kycStatus = latestKyc?.Status.ToString() ?? "NotSubmitted";
+
         var age = CalculateAge(profile.DateOfBirth);
         var isEligible =
             age >= 18 &&
             !profile.IsBlacklisted &&
-            profile.Status == CustomerStatus.Active;
+            profile.Status == CustomerStatus.Active &&
+            kycApproved;
 
         var dto = new InternalCustomerComplianceDto
         {
@@ -163,6 +169,8 @@ public class CustomerProfileService : ICustomerProfileService
             IsBlacklisted = profile.IsBlacklisted,
             BlacklistReason = profile.BlacklistReason,
             RiskLevel = profile.RiskLevel.ToString(),
+            IsKycApproved = kycApproved,
+            KycStatus = kycStatus,
             IsEligibleForBanking = isEligible
         };
 
