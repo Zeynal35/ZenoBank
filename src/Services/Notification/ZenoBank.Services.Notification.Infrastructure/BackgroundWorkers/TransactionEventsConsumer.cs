@@ -7,6 +7,7 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using ZenoBank.BuildingBlocks.Shared.Contracts.Events;
 using ZenoBank.BuildingBlocks.Shared.Messaging.Configurations;
+using ZenoBank.BuildingBlocks.Shared.Messaging.Services;
 using ZenoBank.Services.Notification.Application.Abstractions.Services;
 using ZenoBank.Services.Notification.Domain.Entities;
 using ZenoBank.Services.Notification.Domain.Enums;
@@ -17,30 +18,23 @@ namespace ZenoBank.Services.Notification.Infrastructure.BackgroundWorkers;
 public class TransactionEventsConsumer : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly RabbitMqConnection _connection;
     private readonly RabbitMqSettings _settings;
-    private IConnection? _connection;
     private IModel? _channel;
 
     public TransactionEventsConsumer(
         IServiceScopeFactory scopeFactory,
+        RabbitMqConnection connection,
         IOptions<RabbitMqSettings> settings)
     {
         _scopeFactory = scopeFactory;
+        _connection = connection;
         _settings = settings.Value;
     }
 
     public override Task StartAsync(CancellationToken cancellationToken)
     {
-        var factory = new ConnectionFactory
-        {
-            HostName = _settings.HostName,
-            Port = _settings.Port,
-            UserName = _settings.UserName,
-            Password = _settings.Password
-        };
-
-        _connection = factory.CreateConnection();
-        _channel = _connection.CreateModel();
+        _channel = _connection.GetConnection().CreateModel();
 
         _channel.QueueDeclare(
             queue: _settings.QueueName,
@@ -87,7 +81,6 @@ public class TransactionEventsConsumer : BackgroundService
                         {
                             var @event = JsonSerializer.Deserialize<DepositCompletedEvent>(json);
                             if (@event is null) break;
-
                             userId = @event.UserId;
                             title = "Deposit completed";
                             message = $"Deposit of {@event.Amount} {@event.Currency} completed successfully. Ref: {@event.TransactionReference}";
@@ -101,7 +94,6 @@ public class TransactionEventsConsumer : BackgroundService
                         {
                             var @event = JsonSerializer.Deserialize<WithdrawCompletedEvent>(json);
                             if (@event is null) break;
-
                             userId = @event.UserId;
                             title = "Withdraw completed";
                             message = $"Withdraw of {@event.Amount} {@event.Currency} completed successfully. Ref: {@event.TransactionReference}";
@@ -115,7 +107,6 @@ public class TransactionEventsConsumer : BackgroundService
                         {
                             var @event = JsonSerializer.Deserialize<TransferCompletedEvent>(json);
                             if (@event is null) break;
-
                             userId = @event.UserId;
                             title = "Transfer completed";
                             message = $"Transfer of {@event.Amount} {@event.Currency} completed successfully. Ref: {@event.TransactionReference}";
@@ -129,7 +120,6 @@ public class TransactionEventsConsumer : BackgroundService
                         {
                             var @event = JsonSerializer.Deserialize<UserLoggedInEvent>(json);
                             if (@event is null) break;
-
                             userId = @event.UserId;
                             title = "Login detected";
                             message = $"A login occurred on your ZenoBank account at {@event.LoggedInAtUtc:u}. If this was not you, contact support immediately.";
@@ -143,7 +133,6 @@ public class TransactionEventsConsumer : BackgroundService
                         {
                             var @event = JsonSerializer.Deserialize<UserLoggedOutEvent>(json);
                             if (@event is null) break;
-
                             userId = @event.UserId;
                             title = "Logout completed";
                             message = $"Your ZenoBank account was logged out at {@event.LoggedOutAtUtc:u}.";
@@ -157,7 +146,6 @@ public class TransactionEventsConsumer : BackgroundService
                         {
                             var @event = JsonSerializer.Deserialize<AccountFrozenEvent>(json);
                             if (@event is null) break;
-
                             userId = @event.UserId;
                             title = "Account frozen";
                             message = $"Your bank account {@event.AccountNumber} was frozen at {@event.FrozenAtUtc:u}.";
@@ -171,7 +159,6 @@ public class TransactionEventsConsumer : BackgroundService
                         {
                             var @event = JsonSerializer.Deserialize<AccountUnfrozenEvent>(json);
                             if (@event is null) break;
-
                             userId = @event.UserId;
                             title = "Account unfrozen";
                             message = $"Your bank account {@event.AccountNumber} was unfrozen at {@event.UnfrozenAtUtc:u}.";
@@ -185,7 +172,6 @@ public class TransactionEventsConsumer : BackgroundService
                         {
                             var @event = JsonSerializer.Deserialize<LoanApprovedEvent>(json);
                             if (@event is null) break;
-
                             userId = @event.UserId;
                             title = "Loan approved";
                             message = $"Your loan request was approved. Principal: {@event.PrincipalAmount} {@event.Currency}, Interest: {@event.InterestRate}%, Monthly payment: {@event.MonthlyPayment} {@event.Currency}.";
@@ -199,7 +185,6 @@ public class TransactionEventsConsumer : BackgroundService
                         {
                             var @event = JsonSerializer.Deserialize<LoanRejectedEvent>(json);
                             if (@event is null) break;
-
                             userId = @event.UserId;
                             title = "Loan rejected";
                             message = $"Your loan request was rejected. Reason: {@event.Reason}";
@@ -213,14 +198,12 @@ public class TransactionEventsConsumer : BackgroundService
                         {
                             var @event = JsonSerializer.Deserialize<EmailVerificationRequestedEvent>(json);
                             if (@event is null) break;
-
                             directEmail = @event.Email;
                             directUserName = @event.UserName;
                             emailSubject = "ZenoBank - Verify your email";
                             emailBody = BuildEmailHtml(
                                 "Verify your email",
                                 $"Use this verification token to confirm your email: <b>{@event.VerificationToken}</b><br/>Token expires at: {@event.ExpiresAtUtc:u}");
-
                             createInAppNotification = false;
                             break;
                         }
@@ -278,7 +261,7 @@ public class TransactionEventsConsumer : BackgroundService
     public override void Dispose()
     {
         _channel?.Close();
-        _connection?.Close();
+        _channel?.Dispose();
         base.Dispose();
     }
 

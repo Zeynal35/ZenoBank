@@ -15,6 +15,7 @@ public static class ServiceRegistration
             configuration.GetSection(RabbitMqSettings.SectionName).Bind(options);
         });
 
+        services.AddSingleton<RabbitMqConnection>();
         services.AddScoped<IEventPublisher, RabbitMqEventPublisher>();
 
         return services;

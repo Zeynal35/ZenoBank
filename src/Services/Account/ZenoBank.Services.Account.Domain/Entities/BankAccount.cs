@@ -1,4 +1,5 @@
-﻿using ZenoBank.BuildingBlocks.Shared.Common.Entities;
+﻿using System.ComponentModel.DataAnnotations;
+using ZenoBank.BuildingBlocks.Shared.Common.Entities;
 using ZenoBank.Services.Account.Domain.Enums;
 
 namespace ZenoBank.Services.Account.Domain.Entities;
@@ -18,4 +19,7 @@ public class BankAccount : AuditableEntity
     public AccountStatus Status { get; set; } = AccountStatus.Active;
 
     public bool IsFrozen => Status == AccountStatus.Frozen;
+
+    [Timestamp]
+    public byte[] RowVersion { get; set; } = default!;
 }

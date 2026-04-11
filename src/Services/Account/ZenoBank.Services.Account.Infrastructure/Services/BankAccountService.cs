@@ -1,4 +1,5 @@
-﻿using ZenoBank.BuildingBlocks.Shared.Common.Abstractions;
+﻿using Microsoft.EntityFrameworkCore;
+using ZenoBank.BuildingBlocks.Shared.Common.Abstractions;
 using ZenoBank.BuildingBlocks.Shared.Common.DTOs;
 using ZenoBank.BuildingBlocks.Shared.Common.Results;
 using ZenoBank.BuildingBlocks.Shared.Contracts.Events;
@@ -108,7 +109,6 @@ public class BankAccountService : IBankAccountService
     {
         var accounts = await _repository.GetByUserIdAsync(userId, cancellationToken);
         var data = accounts.Select(Map).ToList();
-
         return Result<List<BankAccountDto>>.Success(data, "Accounts fetched successfully.");
     }
 
@@ -140,7 +140,6 @@ public class BankAccountService : IBankAccountService
     {
         var accounts = await _repository.GetAllAsync(cancellationToken);
         var data = accounts.Select(Map).ToList();
-
         return Result<List<BankAccountDto>>.Success(data, "Accounts fetched successfully.");
     }
 
@@ -242,33 +241,48 @@ public class BankAccountService : IBankAccountService
         if (amount <= 0)
             return Result<AccountBalanceDto>.Failure("Amount must be greater than zero.");
 
-        var account = await _repository.GetByIdAsync(accountId, cancellationToken);
-        if (account is null)
-            return Result<AccountBalanceDto>.Failure("Account not found.");
-
-        if (account.Status == AccountStatus.Closed)
-            return Result<AccountBalanceDto>.Failure("Closed account cannot be updated.");
-
-        if (account.Status == AccountStatus.Frozen)
-            return Result<AccountBalanceDto>.Failure("Frozen account cannot be updated.");
-
-        account.Balance += amount;
-        account.UpdatedAtUtc = DateTime.UtcNow;
-
-        _repository.Update(account);
-        await _repository.SaveChangesAsync(cancellationToken);
-
-        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        var retryCount = 3;
+        while (retryCount > 0)
         {
-            UserId = account.UserId,
-            Action = "BalanceIncreased",
-            EntityType = "BankAccount",
-            EntityId = account.Id.ToString(),
-            Description = $"Balance increased by {amount} {account.Currency} for account {account.AccountNumber}.",
-            Status = "Success"
-        }, cancellationToken);
+            try
+            {
+                var account = await _repository.GetByIdAsync(accountId, cancellationToken);
+                if (account is null)
+                    return Result<AccountBalanceDto>.Failure("Account not found.");
 
-        return Result<AccountBalanceDto>.Success(MapBalance(account), "Balance increased successfully.");
+                if (account.Status == AccountStatus.Closed)
+                    return Result<AccountBalanceDto>.Failure("Closed account cannot be updated.");
+
+                if (account.Status == AccountStatus.Frozen)
+                    return Result<AccountBalanceDto>.Failure("Frozen account cannot be updated.");
+
+                account.Balance += amount;
+                account.UpdatedAtUtc = DateTime.UtcNow;
+
+                _repository.Update(account);
+                await _repository.SaveChangesAsync(cancellationToken);
+
+                await _auditLogger.WriteAsync(new CreateAuditLogRequest
+                {
+                    UserId = account.UserId,
+                    Action = "BalanceIncreased",
+                    EntityType = "BankAccount",
+                    EntityId = account.Id.ToString(),
+                    Description = $"Balance increased by {amount} {account.Currency} for account {account.AccountNumber}.",
+                    Status = "Success"
+                }, cancellationToken);
+
+                return Result<AccountBalanceDto>.Success(MapBalance(account), "Balance increased successfully.");
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                retryCount--;
+                if (retryCount == 0)
+                    return Result<AccountBalanceDto>.Failure("Operation failed due to a conflict. Please try again.");
+            }
+        }
+
+        return Result<AccountBalanceDto>.Failure("Unknown error.");
     }
 
     public async Task<Result<AccountBalanceDto>> DecreaseBalanceAsync(Guid accountId, decimal amount, CancellationToken cancellationToken = default)
@@ -276,36 +290,51 @@ public class BankAccountService : IBankAccountService
         if (amount <= 0)
             return Result<AccountBalanceDto>.Failure("Amount must be greater than zero.");
 
-        var account = await _repository.GetByIdAsync(accountId, cancellationToken);
-        if (account is null)
-            return Result<AccountBalanceDto>.Failure("Account not found.");
-
-        if (account.Status == AccountStatus.Closed)
-            return Result<AccountBalanceDto>.Failure("Closed account cannot be updated.");
-
-        if (account.Status == AccountStatus.Frozen)
-            return Result<AccountBalanceDto>.Failure("Frozen account cannot be updated.");
-
-        if (account.Balance < amount)
-            return Result<AccountBalanceDto>.Failure("Insufficient balance.");
-
-        account.Balance -= amount;
-        account.UpdatedAtUtc = DateTime.UtcNow;
-
-        _repository.Update(account);
-        await _repository.SaveChangesAsync(cancellationToken);
-
-        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        var retryCount = 3;
+        while (retryCount > 0)
         {
-            UserId = account.UserId,
-            Action = "BalanceDecreased",
-            EntityType = "BankAccount",
-            EntityId = account.Id.ToString(),
-            Description = $"Balance decreased by {amount} {account.Currency} for account {account.AccountNumber}.",
-            Status = "Success"
-        }, cancellationToken);
+            try
+            {
+                var account = await _repository.GetByIdAsync(accountId, cancellationToken);
+                if (account is null)
+                    return Result<AccountBalanceDto>.Failure("Account not found.");
 
-        return Result<AccountBalanceDto>.Success(MapBalance(account), "Balance decreased successfully.");
+                if (account.Status == AccountStatus.Closed)
+                    return Result<AccountBalanceDto>.Failure("Closed account cannot be updated.");
+
+                if (account.Status == AccountStatus.Frozen)
+                    return Result<AccountBalanceDto>.Failure("Frozen account cannot be updated.");
+
+                if (account.Balance < amount)
+                    return Result<AccountBalanceDto>.Failure("Insufficient balance.");
+
+                account.Balance -= amount;
+                account.UpdatedAtUtc = DateTime.UtcNow;
+
+                _repository.Update(account);
+                await _repository.SaveChangesAsync(cancellationToken);
+
+                await _auditLogger.WriteAsync(new CreateAuditLogRequest
+                {
+                    UserId = account.UserId,
+                    Action = "BalanceDecreased",
+                    EntityType = "BankAccount",
+                    EntityId = account.Id.ToString(),
+                    Description = $"Balance decreased by {amount} {account.Currency} for account {account.AccountNumber}.",
+                    Status = "Success"
+                }, cancellationToken);
+
+                return Result<AccountBalanceDto>.Success(MapBalance(account), "Balance decreased successfully.");
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                retryCount--;
+                if (retryCount == 0)
+                    return Result<AccountBalanceDto>.Failure("Operation failed due to a conflict. Please try again.");
+            }
+        }
+
+        return Result<AccountBalanceDto>.Failure("Unknown error.");
     }
 
     public async Task<Result> TransferBalanceAsync(Guid fromAccountId, Guid toAccountId, decimal amount, CancellationToken cancellationToken = default)
@@ -319,44 +348,59 @@ public class BankAccountService : IBankAccountService
         if (amount <= 0)
             return Result.Failure("Amount must be greater than zero.");
 
-        var fromAccount = await _repository.GetByIdAsync(fromAccountId, cancellationToken);
-        if (fromAccount is null)
-            return Result.Failure("Sender account not found.");
-
-        var toAccount = await _repository.GetByIdAsync(toAccountId, cancellationToken);
-        if (toAccount is null)
-            return Result.Failure("Receiver account not found.");
-
-        if (fromAccount.Status == AccountStatus.Closed || toAccount.Status == AccountStatus.Closed)
-            return Result.Failure("Closed account cannot participate in transfer.");
-
-        if (fromAccount.Status == AccountStatus.Frozen || toAccount.Status == AccountStatus.Frozen)
-            return Result.Failure("Frozen account cannot participate in transfer.");
-
-        if (fromAccount.Balance < amount)
-            return Result.Failure("Insufficient balance.");
-
-        fromAccount.Balance -= amount;
-        toAccount.Balance += amount;
-
-        fromAccount.UpdatedAtUtc = DateTime.UtcNow;
-        toAccount.UpdatedAtUtc = DateTime.UtcNow;
-
-        _repository.Update(fromAccount);
-        _repository.Update(toAccount);
-        await _repository.SaveChangesAsync(cancellationToken);
-
-        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+        var retryCount = 3;
+        while (retryCount > 0)
         {
-            UserId = fromAccount.UserId,
-            Action = "BalanceTransferred",
-            EntityType = "BankAccount",
-            EntityId = fromAccount.Id.ToString(),
-            Description = $"Transferred {amount} {fromAccount.Currency} from {fromAccount.AccountNumber} to {toAccount.AccountNumber}.",
-            Status = "Success"
-        }, cancellationToken);
+            try
+            {
+                var fromAccount = await _repository.GetByIdAsync(fromAccountId, cancellationToken);
+                if (fromAccount is null)
+                    return Result.Failure("Sender account not found.");
 
-        return Result.Success("Transfer applied successfully.");
+                var toAccount = await _repository.GetByIdAsync(toAccountId, cancellationToken);
+                if (toAccount is null)
+                    return Result.Failure("Receiver account not found.");
+
+                if (fromAccount.Status == AccountStatus.Closed || toAccount.Status == AccountStatus.Closed)
+                    return Result.Failure("Closed account cannot participate in transfer.");
+
+                if (fromAccount.Status == AccountStatus.Frozen || toAccount.Status == AccountStatus.Frozen)
+                    return Result.Failure("Frozen account cannot participate in transfer.");
+
+                if (fromAccount.Balance < amount)
+                    return Result.Failure("Insufficient balance.");
+
+                fromAccount.Balance -= amount;
+                toAccount.Balance += amount;
+
+                fromAccount.UpdatedAtUtc = DateTime.UtcNow;
+                toAccount.UpdatedAtUtc = DateTime.UtcNow;
+
+                _repository.Update(fromAccount);
+                _repository.Update(toAccount);
+                await _repository.SaveChangesAsync(cancellationToken);
+
+                await _auditLogger.WriteAsync(new CreateAuditLogRequest
+                {
+                    UserId = fromAccount.UserId,
+                    Action = "BalanceTransferred",
+                    EntityType = "BankAccount",
+                    EntityId = fromAccount.Id.ToString(),
+                    Description = $"Transferred {amount} {fromAccount.Currency} from {fromAccount.AccountNumber} to {toAccount.AccountNumber}.",
+                    Status = "Success"
+                }, cancellationToken);
+
+                return Result.Success("Transfer applied successfully.");
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                retryCount--;
+                if (retryCount == 0)
+                    return Result.Failure("Operation failed due to a conflict. Please try again.");
+            }
+        }
+
+        return Result.Failure("Unknown error.");
     }
 
     private static BankAccountDto Map(BankAccount account)

@@ -32,6 +32,9 @@ public class AccountDbContext : DbContext
             entity.Property(x => x.Balance)
                 .HasColumnType("decimal(18,2)");
 
+            entity.Property(x => x.RowVersion)
+                .IsRowVersion();
+
             entity.HasIndex(x => x.AccountNumber)
                 .IsUnique();
 

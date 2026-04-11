@@ -15,19 +15,18 @@ public class KycLocalFileStorage : IKycFileStorage
 
     public async Task<(string StoredFileName, string FilePath)> SaveAsync(IFormFile file, CancellationToken cancellationToken = default)
     {
-        var uploadsRoot = Path.Combine(_environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot"), "kyc");
+        var secureRoot = Path.Combine(_environment.ContentRootPath, "SecureStorage", "kyc");
 
-        if (!Directory.Exists(uploadsRoot))
-            Directory.CreateDirectory(uploadsRoot);
+        if (!Directory.Exists(secureRoot))
+            Directory.CreateDirectory(secureRoot);
 
         var extension = Path.GetExtension(file.FileName);
         var storedFileName = $"{Guid.NewGuid():N}{extension}";
-        var fullPath = Path.Combine(uploadsRoot, storedFileName);
+        var fullPath = Path.Combine(secureRoot, storedFileName);
 
         await using var stream = new FileStream(fullPath, FileMode.Create);
         await file.CopyToAsync(stream, cancellationToken);
 
-        var relativePath = $"/kyc/{storedFileName}";
-        return (storedFileName, relativePath);
+        return (storedFileName, fullPath);
     }
 }

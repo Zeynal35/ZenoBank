@@ -13,6 +13,8 @@ public interface IKycDocumentService
         IFormFile file,
         CancellationToken cancellationToken = default);
 
+    Task<Result<KycDocumentDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+
     Task<Result<List<KycDocumentDto>>> GetMyDocumentsAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<Result<List<KycDocumentDto>>> GetAllAsync(CancellationToken cancellationToken = default);
 

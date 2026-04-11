@@ -91,6 +91,15 @@ public class KycDocumentService : IKycDocumentService
         return Result<KycDocumentDto>.Success(Map(entity), "KYC document uploaded successfully.");
     }
 
+    public async Task<Result<KycDocumentDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var document = await _kycDocumentRepository.GetByIdAsync(id, cancellationToken);
+        if (document is null)
+            return Result<KycDocumentDto>.Failure("Document not found.");
+
+        return Result<KycDocumentDto>.Success(Map(document), "Document fetched successfully.");
+    }
+
     public async Task<Result<List<KycDocumentDto>>> GetMyDocumentsAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var docs = await _kycDocumentRepository.GetByUserIdAsync(userId, cancellationToken);
