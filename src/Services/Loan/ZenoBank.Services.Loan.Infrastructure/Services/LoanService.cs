@@ -15,6 +15,7 @@ public class LoanService : ILoanService
 {
     private readonly ILoanRepository _repository;
     private readonly ICustomerServiceClient _customerServiceClient;
+    private readonly IAccountServiceClient _accountServiceClient;
     private readonly ILoanCalculator _loanCalculator;
     private readonly IAuditLogger _auditLogger;
     private readonly IEventPublisher _eventPublisher;
@@ -22,12 +23,14 @@ public class LoanService : ILoanService
     public LoanService(
         ILoanRepository repository,
         ICustomerServiceClient customerServiceClient,
+        IAccountServiceClient accountServiceClient,
         ILoanCalculator loanCalculator,
         IAuditLogger auditLogger,
         IEventPublisher eventPublisher)
     {
         _repository = repository;
         _customerServiceClient = customerServiceClient;
+        _accountServiceClient = accountServiceClient;
         _loanCalculator = loanCalculator;
         _auditLogger = auditLogger;
         _eventPublisher = eventPublisher;
@@ -51,6 +54,9 @@ public class LoanService : ILoanService
 
         if (string.IsNullOrWhiteSpace(request.Purpose))
             errors.Add("Purpose is required.");
+
+        if (request.DisbursementAccountId == Guid.Empty)
+            errors.Add("DisbursementAccountId is required.");
 
         if (errors.Count > 0)
             return Result<LoanApplicationDto>.Failure("Validation failed.", errors);
@@ -85,6 +91,7 @@ public class LoanService : ILoanService
         {
             UserId = userId,
             CustomerProfileId = request.CustomerProfileId,
+            DisbursementAccountId = request.DisbursementAccountId,
             PrincipalAmount = request.PrincipalAmount,
             InterestRate = 0m,
             TermInMonths = request.TermInMonths,
@@ -156,6 +163,9 @@ public class LoanService : ILoanService
         if (loan.Status != LoanStatus.Pending)
             return Result<LoanApplicationDto>.Failure("Only pending loan applications can be approved.");
 
+        if (loan.DisbursementAccountId == Guid.Empty)
+            return Result<LoanApplicationDto>.Failure("Disbursement account is not set for this loan.");
+
         loan.InterestRate = interestRate;
         loan.MonthlyPayment = _loanCalculator.CalculateMonthlyPayment(loan.PrincipalAmount, interestRate, loan.TermInMonths);
         loan.TotalRepayment = _loanCalculator.CalculateTotalRepayment(loan.MonthlyPayment, loan.TermInMonths);
@@ -166,13 +176,33 @@ public class LoanService : ILoanService
         _repository.Update(loan);
         await _repository.SaveChangesAsync(cancellationToken);
 
+        var disburseResult = await _accountServiceClient.IncreaseBalanceAsync(
+            loan.DisbursementAccountId,
+            loan.PrincipalAmount,
+            cancellationToken);
+
+        if (disburseResult.IsFailure)
+        {
+            await _auditLogger.WriteAsync(new CreateAuditLogRequest
+            {
+                UserId = loan.UserId,
+                Action = "LoanDisbursementFailed",
+                EntityType = "LoanApplication",
+                EntityId = loan.Id.ToString(),
+                Description = $"Loan approved but disbursement failed. Account: {loan.DisbursementAccountId}. Reason: {disburseResult.Message}",
+                Status = "Failed"
+            }, cancellationToken);
+
+            return Result<LoanApplicationDto>.Failure($"Loan approved but disbursement failed: {disburseResult.Message}");
+        }
+
         await _auditLogger.WriteAsync(new CreateAuditLogRequest
         {
             UserId = loan.UserId,
             Action = "LoanApplicationApproved",
             EntityType = "LoanApplication",
             EntityId = loan.Id.ToString(),
-            Description = $"Loan approved with {loan.InterestRate}% interest. Monthly payment: {loan.MonthlyPayment} {loan.Currency}.",
+            Description = $"Loan approved with {loan.InterestRate}% interest. Monthly payment: {loan.MonthlyPayment} {loan.Currency}. Disbursed {loan.PrincipalAmount} to account {loan.DisbursementAccountId}.",
             Status = "Success"
         }, cancellationToken);
 
@@ -189,7 +219,7 @@ public class LoanService : ILoanService
             ApprovedAtUtc = loan.ApprovedAtUtc!.Value
         }, cancellationToken);
 
-        return Result<LoanApplicationDto>.Success(Map(loan), "Loan application approved successfully.");
+        return Result<LoanApplicationDto>.Success(Map(loan), "Loan application approved and amount disbursed successfully.");
     }
 
     public async Task<Result<LoanApplicationDto>> RejectAsync(Guid id, string reason, CancellationToken cancellationToken = default)
@@ -243,6 +273,7 @@ public class LoanService : ILoanService
             Id = loan.Id,
             UserId = loan.UserId,
             CustomerProfileId = loan.CustomerProfileId,
+            DisbursementAccountId = loan.DisbursementAccountId,
             PrincipalAmount = loan.PrincipalAmount,
             InterestRate = loan.InterestRate,
             TermInMonths = loan.TermInMonths,

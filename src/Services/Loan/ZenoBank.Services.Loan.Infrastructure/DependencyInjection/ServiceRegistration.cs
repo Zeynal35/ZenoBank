@@ -47,6 +47,22 @@ public static class ServiceRegistration
                 HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
         });
 
+        services.AddHttpClient<IAccountServiceClient, AccountServiceClient>((sp, client) =>
+        {
+            var endpoints = configuration.GetSection(ServiceEndpoints.SectionName).Get<ServiceEndpoints>();
+
+            if (endpoints is null || string.IsNullOrWhiteSpace(endpoints.AccountApiBaseUrl))
+                throw new InvalidOperationException("ServiceEndpoints:AccountApiBaseUrl is missing in configuration.");
+
+            client.BaseAddress = new Uri(endpoints.AccountApiBaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(15);
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback =
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+        });
+
         services.AddScoped<ILoanRepository, LoanRepository>();
         services.AddScoped<ILoanService, LoanService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();

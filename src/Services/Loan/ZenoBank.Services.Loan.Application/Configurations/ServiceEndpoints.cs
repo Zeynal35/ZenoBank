@@ -5,4 +5,5 @@ public class ServiceEndpoints
     public const string SectionName = "ServiceEndpoints";
 
     public string CustomerApiBaseUrl { get; set; } = string.Empty;
+    public string AccountApiBaseUrl { get; set; } = string.Empty;
 }
