@@ -49,6 +49,13 @@ public class TransactionService : ITransactionService
         if (errors.Count > 0)
             return Result<TransactionRecordDto>.Failure("Validation failed.", errors);
 
+        var accountResult = await _accountServiceClient.GetAccountByIdAsync(request.ToAccountId, cancellationToken);
+        if (accountResult.IsFailure || accountResult.Data is null)
+            return Result<TransactionRecordDto>.Failure(accountResult.Message, accountResult.Errors);
+
+        if (accountResult.Data.UserId != userId)
+            return Result<TransactionRecordDto>.Failure("You are not allowed to deposit to this account.");
+
         var increaseResult = await _accountServiceClient.IncreaseBalanceAsync(request.ToAccountId, request.Amount, cancellationToken);
 
         if (increaseResult.IsFailure)
@@ -311,7 +318,6 @@ public class TransactionService : ITransactionService
     {
         var transactions = await _repository.GetByUserIdAsync(userId, cancellationToken);
         var data = transactions.Select(Map).ToList();
-
         return Result<List<TransactionRecordDto>>.Success(data, "Transactions fetched successfully.");
     }
 
@@ -331,7 +337,6 @@ public class TransactionService : ITransactionService
     {
         var transactions = await _repository.GetAllAsync(cancellationToken);
         var data = transactions.Select(Map).ToList();
-
         return Result<List<TransactionRecordDto>>.Success(data, "Transactions fetched successfully.");
     }
 

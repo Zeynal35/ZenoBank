@@ -166,16 +166,7 @@ public class LoanService : ILoanService
         if (loan.DisbursementAccountId == Guid.Empty)
             return Result<LoanApplicationDto>.Failure("Disbursement account is not set for this loan.");
 
-        loan.InterestRate = interestRate;
-        loan.MonthlyPayment = _loanCalculator.CalculateMonthlyPayment(loan.PrincipalAmount, interestRate, loan.TermInMonths);
-        loan.TotalRepayment = _loanCalculator.CalculateTotalRepayment(loan.MonthlyPayment, loan.TermInMonths);
-        loan.Status = LoanStatus.Approved;
-        loan.ApprovedAtUtc = DateTime.UtcNow;
-        loan.UpdatedAtUtc = DateTime.UtcNow;
-
-        _repository.Update(loan);
-        await _repository.SaveChangesAsync(cancellationToken);
-
+        // Əvvəlcə pulu köçür, sonra statusu dəyiş
         var disburseResult = await _accountServiceClient.IncreaseBalanceAsync(
             loan.DisbursementAccountId,
             loan.PrincipalAmount,
@@ -189,12 +180,22 @@ public class LoanService : ILoanService
                 Action = "LoanDisbursementFailed",
                 EntityType = "LoanApplication",
                 EntityId = loan.Id.ToString(),
-                Description = $"Loan approved but disbursement failed. Account: {loan.DisbursementAccountId}. Reason: {disburseResult.Message}",
+                Description = $"Disbursement failed before approval. Account: {loan.DisbursementAccountId}. Reason: {disburseResult.Message}",
                 Status = "Failed"
             }, cancellationToken);
 
-            return Result<LoanApplicationDto>.Failure($"Loan approved but disbursement failed: {disburseResult.Message}");
+            return Result<LoanApplicationDto>.Failure($"Disbursement failed: {disburseResult.Message}");
         }
+
+        loan.InterestRate = interestRate;
+        loan.MonthlyPayment = _loanCalculator.CalculateMonthlyPayment(loan.PrincipalAmount, interestRate, loan.TermInMonths);
+        loan.TotalRepayment = _loanCalculator.CalculateTotalRepayment(loan.MonthlyPayment, loan.TermInMonths);
+        loan.Status = LoanStatus.Approved;
+        loan.ApprovedAtUtc = DateTime.UtcNow;
+        loan.UpdatedAtUtc = DateTime.UtcNow;
+
+        _repository.Update(loan);
+        await _repository.SaveChangesAsync(cancellationToken);
 
         await _auditLogger.WriteAsync(new CreateAuditLogRequest
         {

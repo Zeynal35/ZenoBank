@@ -1,4 +1,5 @@
 ﻿using System.Net.Mail;
+using Microsoft.Extensions.Configuration;
 using ZenoBank.BuildingBlocks.Shared.Common.Abstractions;
 using ZenoBank.BuildingBlocks.Shared.Common.DTOs;
 using ZenoBank.BuildingBlocks.Shared.Common.Results;
@@ -22,6 +23,7 @@ public class IdentityService : IIdentityService
     private readonly ITokenService _tokenService;
     private readonly IAuditLogger _auditLogger;
     private readonly IEventPublisher _eventPublisher;
+    private readonly string _frontendBaseUrl;
 
     public IdentityService(
         IUserRepository userRepository,
@@ -31,7 +33,8 @@ public class IdentityService : IIdentityService
         IPasswordHasher passwordHasher,
         ITokenService tokenService,
         IAuditLogger auditLogger,
-        IEventPublisher eventPublisher)
+        IEventPublisher eventPublisher,
+        IConfiguration configuration)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
@@ -41,6 +44,7 @@ public class IdentityService : IIdentityService
         _tokenService = tokenService;
         _auditLogger = auditLogger;
         _eventPublisher = eventPublisher;
+        _frontendBaseUrl = configuration["Frontend:BaseUrl"] ?? "http://localhost:3000";
     }
 
     public async Task<Result<UserDto>> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
@@ -126,6 +130,7 @@ public class IdentityService : IIdentityService
             UserName = user.UserName,
             Email = user.Email,
             VerificationToken = verificationToken.Token,
+            VerificationUrl = $"{_frontendBaseUrl}/confirm-email?token={verificationToken.Token}",
             ExpiresAtUtc = verificationToken.ExpiresAtUtc
         }, cancellationToken);
 
@@ -445,6 +450,7 @@ public class IdentityService : IIdentityService
                 UserName = user.UserName,
                 Email = user.Email,
                 VerificationToken = latestToken.Token,
+                VerificationUrl = $"{_frontendBaseUrl}/confirm-email?token={latestToken.Token}",
                 ExpiresAtUtc = latestToken.ExpiresAtUtc
             }, cancellationToken);
 
@@ -468,6 +474,7 @@ public class IdentityService : IIdentityService
             UserName = user.UserName,
             Email = user.Email,
             VerificationToken = verificationToken.Token,
+            VerificationUrl = $"{_frontendBaseUrl}/confirm-email?token={verificationToken.Token}",
             ExpiresAtUtc = verificationToken.ExpiresAtUtc
         }, cancellationToken);
 

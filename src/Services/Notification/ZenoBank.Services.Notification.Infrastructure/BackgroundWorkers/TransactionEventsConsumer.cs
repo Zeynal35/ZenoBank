@@ -203,7 +203,11 @@ public class TransactionEventsConsumer : BackgroundService
                             emailSubject = "ZenoBank - Verify your email";
                             emailBody = BuildEmailHtml(
                                 "Verify your email",
-                                $"Use this verification token to confirm your email: <b>{@event.VerificationToken}</b><br/>Token expires at: {@event.ExpiresAtUtc:u}");
+                                $"Hello {@event.UserName},<br/><br/>" +
+                                $"Please verify your email address by clicking the button below:<br/><br/>" +
+                                $"<a href=\"{@event.VerificationUrl}\" style=\"background:#1a56db;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;\">Verify Email</a><br/><br/>" +
+                                $"Or copy this link: <code>{@event.VerificationUrl}</code><br/><br/>" +
+                                $"This link expires at: {@event.ExpiresAtUtc:u}");
                             createInAppNotification = false;
                             break;
                         }
