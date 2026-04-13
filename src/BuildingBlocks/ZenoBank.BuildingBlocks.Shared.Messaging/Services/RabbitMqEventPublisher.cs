@@ -1,17 +1,21 @@
 ﻿using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Options;
 using ZenoBank.BuildingBlocks.Shared.Contracts.Events;
 using ZenoBank.BuildingBlocks.Shared.Messaging.Abstractions;
+using ZenoBank.BuildingBlocks.Shared.Messaging.Configurations;
 
 namespace ZenoBank.BuildingBlocks.Shared.Messaging.Services;
 
 public class RabbitMqEventPublisher : IEventPublisher
 {
     private readonly RabbitMqConnection _connection;
+    private readonly RabbitMqSettings _settings;
 
-    public RabbitMqEventPublisher(RabbitMqConnection connection)
+    public RabbitMqEventPublisher(RabbitMqConnection connection, IOptions<RabbitMqSettings> settings)
     {
         _connection = connection;
+        _settings = settings.Value;
     }
 
     public Task PublishAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
@@ -20,7 +24,7 @@ public class RabbitMqEventPublisher : IEventPublisher
         using var channel = _connection.GetConnection().CreateModel();
 
         channel.QueueDeclare(
-            queue: typeof(TEvent).Name,
+            queue: _settings.QueueName,
             durable: true,
             exclusive: false,
             autoDelete: false,
@@ -38,7 +42,7 @@ public class RabbitMqEventPublisher : IEventPublisher
 
         channel.BasicPublish(
             exchange: "",
-            routingKey: typeof(TEvent).Name,
+            routingKey: _settings.QueueName,
             mandatory: false,
             basicProperties: properties,
             body: new ReadOnlyMemory<byte>(body));

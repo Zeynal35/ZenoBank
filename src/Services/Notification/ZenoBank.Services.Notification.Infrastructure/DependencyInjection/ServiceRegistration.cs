@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ZenoBank.BuildingBlocks.Shared.Messaging.Configurations;
+using ZenoBank.BuildingBlocks.Shared.Messaging.Services;
 using ZenoBank.Services.Notification.Application.Abstractions.Repositories;
 using ZenoBank.Services.Notification.Application.Abstractions.Services;
 using ZenoBank.Services.Notification.Infrastructure.BackgroundWorkers;
@@ -19,6 +20,8 @@ public static class ServiceRegistration
         services.Configure<RabbitMqSettings>(configuration.GetSection(RabbitMqSettings.SectionName));
         services.Configure<ServiceEndpoints>(configuration.GetSection(ServiceEndpoints.SectionName));
         services.Configure<EmailSettings>(configuration.GetSection(EmailSettings.SectionName));
+
+        services.AddSingleton<RabbitMqConnection>();
 
         services.AddDbContext<NotificationDbContext>(options =>
         {
