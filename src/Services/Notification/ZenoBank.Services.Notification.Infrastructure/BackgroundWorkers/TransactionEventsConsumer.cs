@@ -2,6 +2,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
@@ -20,16 +21,19 @@ public class TransactionEventsConsumer : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly RabbitMqConnection _connection;
     private readonly RabbitMqSettings _settings;
+    private readonly ILogger<TransactionEventsConsumer> _logger;
     private IModel? _channel;
 
     public TransactionEventsConsumer(
         IServiceScopeFactory scopeFactory,
         RabbitMqConnection connection,
-        IOptions<RabbitMqSettings> settings)
+        IOptions<RabbitMqSettings> settings,
+        ILogger<TransactionEventsConsumer> logger)
     {
         _scopeFactory = scopeFactory;
         _connection = connection;
         _settings = settings.Value;
+        _logger = logger;
     }
 
     public override Task StartAsync(CancellationToken cancellationToken)
@@ -59,6 +63,8 @@ public class TransactionEventsConsumer : BackgroundService
                 var body = ea.Body.ToArray();
                 var json = Encoding.UTF8.GetString(body);
                 var eventType = GetEventType(ea.BasicProperties);
+
+                _logger.LogInformation("Received event: {EventType}", eventType);
 
                 using var scope = _scopeFactory.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
@@ -228,29 +234,36 @@ public class TransactionEventsConsumer : BackgroundService
 
                 if (!string.IsNullOrWhiteSpace(directEmail))
                 {
+                    _logger.LogInformation("Sending email directly to {Email}", directEmail);
                     await emailSender.SendAsync(directEmail, directUserName, emailSubject, emailBody, stoppingToken);
+                    _logger.LogInformation("Email sent successfully to {Email}", directEmail);
                 }
                 else if (userId is not null)
                 {
                     var userResult = await identityClient.GetUserContactAsync(userId.Value, stoppingToken);
                     if (userResult.IsSuccess && userResult.Data is not null &&
-                        !string.IsNullOrWhiteSpace(userResult.Data.Email) &&
-                        userResult.Data.EmailConfirmed)
+                        !string.IsNullOrWhiteSpace(userResult.Data.Email))
                     {
+                        _logger.LogInformation("Sending email to {Email} (EmailConfirmed={Confirmed})",
+                            userResult.Data.Email, userResult.Data.EmailConfirmed);
+
                         await emailSender.SendAsync(
                             userResult.Data.Email,
                             userResult.Data.UserName,
                             emailSubject,
                             emailBody,
                             stoppingToken);
+
+                        _logger.LogInformation("Email sent successfully to {Email}", userResult.Data.Email);
                     }
                 }
 
                 _channel!.BasicAck(ea.DeliveryTag, false);
             }
-            catch
+            catch (Exception ex)
             {
-                _channel!.BasicNack(ea.DeliveryTag, false, true);
+                _logger.LogError(ex, "Error processing RabbitMQ event");
+                _channel!.BasicNack(ea.DeliveryTag, false, false);
             }
         };
 
