@@ -2,10 +2,8 @@
 using MailKit.Security;
 using Microsoft.Extensions.Options;
 using MimeKit;
-using System.Net.Mail;
 using ZenoBank.Services.Notification.Application.Abstractions.Services;
 using ZenoBank.Services.Notification.Infrastructure.Configurations;
-using SmtpClient = MailKit.Net.Smtp.SmtpClient;
 
 namespace ZenoBank.Services.Notification.Infrastructure.Services;
 

@@ -1,74 +1,35 @@
-using System.Text;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
 using ZenoBank.Services.Customer.API.Extensions;
 using ZenoBank.Services.Customer.API.Middlewares;
-using ZenoBank.Services.Customer.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
+const string FrontendCorsPolicy = "FrontendCorsPolicy";
+
+builder.Services.AddCors(options =>
 {
-    options.SwaggerDoc("v1", new OpenApiInfo
+    options.AddPolicy(FrontendCorsPolicy, policy =>
     {
-        Title = "ZenoBank Customer API",
-        Version = "v1"
-    });
-
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT",
-        In = ParameterLocation.Header,
-        Description = "Only paste the JWT token"
-    });
-
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
+        policy
+            .WithOrigins(
+                "http://localhost:3001",
+                "https://localhost:3001",
+                "http://localhost:5173",
+                "https://localhost:5173",
+                "http://127.0.0.1:3000",
+                "https://127.0.0.1:3001",
+                "http://127.0.0.1:5173",
+                "https://127.0.0.1:5173"
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod();
     });
 });
 
 builder.Services.AddCustomerModule(builder.Configuration);
 
-var jwtSection = builder.Configuration.GetSection("Jwt");
-var issuer = jwtSection["Issuer"];
-var audience = jwtSection["Audience"];
-var key = jwtSection["Key"];
-
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidIssuer = issuer,
-            ValidateAudience = true,
-            ValidAudience = audience,
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key!)),
-            ValidateLifetime = true,
-            ClockSkew = TimeSpan.Zero
-        };
-    });
-
-builder.Services.AddAuthorization();
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
@@ -81,15 +42,12 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors(FrontendCorsPolicy);
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-
-using (var scope = app.Services.CreateScope())
-{
-    var dbContext = scope.ServiceProvider.GetRequiredService<CustomerDbContext>();
-    await dbContext.Database.MigrateAsync();
-}
 
 app.Run();
