@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using ZenoBank.BuildingBlocks.Shared.Common.Responses;
 using ZenoBank.Services.Customer.Application.Abstractions.Services;
 using ZenoBank.Services.Customer.Application.DTOs;
@@ -8,249 +9,109 @@ namespace ZenoBank.Services.Customer.API.Controllers;
 
 [ApiController]
 [Route("api/customers")]
+[Authorize]
 public class CustomerProfilesController : ControllerBase
 {
     private readonly ICustomerProfileService _customerProfileService;
-    private readonly ICurrentUserService _currentUserService;
 
-    public CustomerProfilesController(
-        ICustomerProfileService customerProfileService,
-        ICurrentUserService currentUserService)
+    public CustomerProfilesController(ICustomerProfileService customerProfileService)
     {
         _customerProfileService = customerProfileService;
-        _currentUserService = currentUserService;
     }
 
-    [Authorize]
+    // 🔥 USER ID TOKEN-DAN OXUNUR
+    private Guid GetUserId()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrEmpty(userId))
+        {
+            throw new Exception("UserId claim is missing in token");
+        }
+
+        return Guid.Parse(userId);
+    }
+
+    // 🔥 DEBUG üçün
+    [HttpGet("debug-user")]
+    public IActionResult DebugUser()
+    {
+        var claims = User.Claims.Select(c => new { c.Type, c.Value });
+        return Ok(claims);
+    }
+
+    // ✅ CREATE PROFILE
     [HttpPost("me")]
-    public async Task<IActionResult> CreateMyProfile([FromBody] CreateCustomerProfileRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateMe(
+        [FromBody] CreateCustomerProfileRequest request,
+        CancellationToken cancellationToken)
     {
-        if (_currentUserService.UserId is null)
+        try
         {
-            return Unauthorized(new ApiResponse<object>
-            {
-                Success = false,
-                Message = "User is not authenticated."
-            });
-        }
+            var userId = GetUserId();
 
-        var result = await _customerProfileService.CreateAsync(_currentUserService.UserId.Value, request, cancellationToken);
+            var result = await _customerProfileService.CreateAsync(userId, request, cancellationToken);
 
-        if (result.IsFailure)
-        {
-            return BadRequest(new ApiResponse<object>
+            if (result.IsFailure)
             {
-                Success = false,
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = result.Message,
+                    Errors = result.Errors
+                });
+            }
+
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
                 Message = result.Message,
-                Errors = result.Errors
+                Data = result.Data
             });
         }
-
-        return Ok(new ApiResponse<object>
+        catch (Exception ex)
         {
-            Success = true,
-            Message = result.Message,
-            Data = result.Data
-        });
+            return StatusCode(500, new ApiResponse<object>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
     }
 
-    [Authorize]
+    // ✅ GET PROFILE
     [HttpGet("me")]
-    public async Task<IActionResult> GetMyProfile(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetMe(CancellationToken cancellationToken)
     {
-        if (_currentUserService.UserId is null)
+        try
         {
-            return Unauthorized(new ApiResponse<object>
+            var userId = GetUserId();
+
+            var result = await _customerProfileService.GetMyProfileAsync(userId, cancellationToken);
+
+            if (result.IsFailure)
             {
-                Success = false,
-                Message = "User is not authenticated."
+                return NotFound(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = result.Message,
+                    Errors = result.Errors
+                });
+            }
+
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Data = result.Data
             });
         }
-
-        var result = await _customerProfileService.GetMyProfileAsync(_currentUserService.UserId.Value, cancellationToken);
-
-        if (result.IsFailure)
+        catch (Exception ex)
         {
-            return NotFound(new ApiResponse<object>
+            return StatusCode(500, new ApiResponse<object>
             {
                 Success = false,
-                Message = result.Message,
-                Errors = result.Errors
+                Message = ex.Message
             });
         }
-
-        return Ok(new ApiResponse<object>
-        {
-            Success = true,
-            Message = result.Message,
-            Data = result.Data
-        });
-    }
-
-    [Authorize]
-    [HttpPut("me")]
-    public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateCustomerProfileRequest request, CancellationToken cancellationToken)
-    {
-        if (_currentUserService.UserId is null)
-        {
-            return Unauthorized(new ApiResponse<object>
-            {
-                Success = false,
-                Message = "User is not authenticated."
-            });
-        }
-
-        var result = await _customerProfileService.UpdateMyProfileAsync(_currentUserService.UserId.Value, request, cancellationToken);
-
-        if (result.IsFailure)
-        {
-            return BadRequest(new ApiResponse<object>
-            {
-                Success = false,
-                Message = result.Message,
-                Errors = result.Errors
-            });
-        }
-
-        return Ok(new ApiResponse<object>
-        {
-            Success = true,
-            Message = result.Message,
-            Data = result.Data
-        });
-    }
-
-    [Authorize(Roles = "SuperAdmin,Admin,Operator")]
-    [HttpGet]
-    public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
-    {
-        var result = await _customerProfileService.GetAllAsync(cancellationToken);
-
-        return Ok(new ApiResponse<object>
-        {
-            Success = true,
-            Message = result.Message,
-            Data = result.Data
-        });
-    }
-
-    [Authorize(Roles = "SuperAdmin,Admin,Operator")]
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
-    {
-        var result = await _customerProfileService.GetByIdAsync(id, cancellationToken);
-
-        if (result.IsFailure)
-        {
-            return NotFound(new ApiResponse<object>
-            {
-                Success = false,
-                Message = result.Message,
-                Errors = result.Errors
-            });
-        }
-
-        return Ok(new ApiResponse<object>
-        {
-            Success = true,
-            Message = result.Message,
-            Data = result.Data
-        });
-    }
-
-    [Authorize(Roles = "SuperAdmin,Admin")]
-    [HttpPatch("{id:guid}/blacklist")]
-    public async Task<IActionResult> Blacklist(Guid id, [FromBody] BlacklistCustomerRequest request, CancellationToken cancellationToken)
-    {
-        var result = await _customerProfileService.BlacklistAsync(id, request.Reason, cancellationToken);
-
-        if (result.IsFailure)
-        {
-            return BadRequest(new ApiResponse<object>
-            {
-                Success = false,
-                Message = result.Message,
-                Errors = result.Errors
-            });
-        }
-
-        return Ok(new ApiResponse<object>
-        {
-            Success = true,
-            Message = result.Message,
-            Data = result.Data
-        });
-    }
-
-    [Authorize(Roles = "SuperAdmin,Admin")]
-    [HttpPatch("{id:guid}/unblacklist")]
-    public async Task<IActionResult> Unblacklist(Guid id, CancellationToken cancellationToken)
-    {
-        var result = await _customerProfileService.RemoveFromBlacklistAsync(id, cancellationToken);
-
-        if (result.IsFailure)
-        {
-            return BadRequest(new ApiResponse<object>
-            {
-                Success = false,
-                Message = result.Message,
-                Errors = result.Errors
-            });
-        }
-
-        return Ok(new ApiResponse<object>
-        {
-            Success = true,
-            Message = result.Message,
-            Data = result.Data
-        });
-    }
-
-    [Authorize(Roles = "SuperAdmin,Admin")]
-    [HttpPatch("{id:guid}/risk")]
-    public async Task<IActionResult> UpdateRisk(Guid id, [FromBody] UpdateCustomerRiskRequest request, CancellationToken cancellationToken)
-    {
-        var result = await _customerProfileService.UpdateRiskLevelAsync(id, request.RiskLevel, cancellationToken);
-
-        if (result.IsFailure)
-        {
-            return BadRequest(new ApiResponse<object>
-            {
-                Success = false,
-                Message = result.Message,
-                Errors = result.Errors
-            });
-        }
-
-        return Ok(new ApiResponse<object>
-        {
-            Success = true,
-            Message = result.Message,
-            Data = result.Data
-        });
-    }
-
-    [Authorize(Roles = "SuperAdmin,Admin")]
-    [HttpPatch("{id:guid}/status")]
-    public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateCustomerStatusRequest request, CancellationToken cancellationToken)
-    {
-        var result = await _customerProfileService.UpdateStatusAsync(id, request.Status, cancellationToken);
-
-        if (result.IsFailure)
-        {
-            return BadRequest(new ApiResponse<object>
-            {
-                Success = false,
-                Message = result.Message,
-                Errors = result.Errors
-            });
-        }
-
-        return Ok(new ApiResponse<object>
-        {
-            Success = true,
-            Message = result.Message,
-            Data = result.Data
-        });
     }
 }

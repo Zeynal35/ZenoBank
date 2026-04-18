@@ -44,7 +44,7 @@ public class IdentityService : IIdentityService
         _tokenService = tokenService;
         _auditLogger = auditLogger;
         _eventPublisher = eventPublisher;
-        _frontendBaseUrl = configuration["Frontend:BaseUrl"] ?? "http://localhost:3000";
+        _frontendBaseUrl = configuration["Frontend:BaseUrl"] ?? "http://localhost:3001";
     }
 
     public async Task<Result<UserDto>> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
@@ -57,21 +57,22 @@ public class IdentityService : IIdentityService
         if (string.IsNullOrWhiteSpace(request.Email))
             errors.Add("Email is required.");
 
-        if (!IsValidEmail(request.Email))
+        if (!string.IsNullOrWhiteSpace(request.Email) && !IsValidEmail(request.Email))
             errors.Add("Email format is invalid.");
 
         if (string.IsNullOrWhiteSpace(request.Password))
             errors.Add("Password is required.");
 
-        if (request.Password.Length < 6)
+        if (!string.IsNullOrWhiteSpace(request.Password) && request.Password.Length < 6)
             errors.Add("Password must be at least 6 characters.");
 
         if (errors.Count > 0)
             return Result<UserDto>.Failure("Validation failed.", errors);
 
+        var normalizedUserName = request.UserName.Trim();
         var normalizedEmail = request.Email.Trim().ToLower();
 
-        var existingByUserName = await _userRepository.GetByUserNameAsync(request.UserName, cancellationToken);
+        var existingByUserName = await _userRepository.GetByUserNameAsync(normalizedUserName, cancellationToken);
         if (existingByUserName is not null)
             return Result<UserDto>.Failure("Username already exists.");
 
@@ -85,7 +86,7 @@ public class IdentityService : IIdentityService
 
         var user = new User
         {
-            UserName = request.UserName.Trim(),
+            UserName = normalizedUserName,
             Email = normalizedEmail,
             PasswordHash = _passwordHasher.HashPassword(request.Password),
             IsActive = true,
@@ -130,7 +131,7 @@ public class IdentityService : IIdentityService
             UserName = user.UserName,
             Email = user.Email,
             VerificationToken = verificationToken.Token,
-            VerificationUrl = $"{_frontendBaseUrl}/confirm-email?token={verificationToken.Token}",
+            VerificationUrl = $"{_frontendBaseUrl}/verify-email?token={verificationToken.Token}",
             ExpiresAtUtc = verificationToken.ExpiresAtUtc
         }, cancellationToken);
 
@@ -151,7 +152,9 @@ public class IdentityService : IIdentityService
         if (string.IsNullOrWhiteSpace(request.UserNameOrEmail) || string.IsNullOrWhiteSpace(request.Password))
             return Result<AuthResponse>.Failure("Username/email and password are required.");
 
-        var user = await _userRepository.GetByUserNameOrEmailAsync(request.UserNameOrEmail, cancellationToken);
+        var loginValue = request.UserNameOrEmail.Trim();
+
+        var user = await _userRepository.GetByUserNameOrEmailAsync(loginValue, cancellationToken);
         if (user is null)
             return Result<AuthResponse>.Failure("Invalid username/email or password.");
 
@@ -226,6 +229,9 @@ public class IdentityService : IIdentityService
             return Result<AuthResponse>.Failure("Refresh token has expired.");
 
         var user = existingRefreshToken.User;
+        if (user is null)
+            return Result<AuthResponse>.Failure("Associated user was not found.");
+
         if (!user.IsActive)
             return Result<AuthResponse>.Failure("User is inactive.");
 
@@ -295,7 +301,7 @@ public class IdentityService : IIdentityService
             Action = "UserLoggedOut",
             EntityType = "RefreshToken",
             EntityId = existingRefreshToken.Id.ToString(),
-            Description = $"User logged out successfully.",
+            Description = "User logged out successfully.",
             Status = "Success"
         }, cancellationToken);
 
@@ -434,7 +440,9 @@ public class IdentityService : IIdentityService
         if (!IsValidEmail(email))
             return Result.Failure("Email format is invalid.");
 
-        var user = await _userRepository.GetByEmailAsync(email.Trim().ToLower(), cancellationToken);
+        var normalizedEmail = email.Trim().ToLower();
+        var user = await _userRepository.GetByEmailAsync(normalizedEmail, cancellationToken);
+
         if (user is null)
             return Result.Failure("User not found.");
 
@@ -450,7 +458,7 @@ public class IdentityService : IIdentityService
                 UserName = user.UserName,
                 Email = user.Email,
                 VerificationToken = latestToken.Token,
-                VerificationUrl = $"{_frontendBaseUrl}/confirm-email?token={latestToken.Token}",
+                VerificationUrl = $"{_frontendBaseUrl}/verify-email?token={latestToken.Token}",
                 ExpiresAtUtc = latestToken.ExpiresAtUtc
             }, cancellationToken);
 
@@ -474,7 +482,7 @@ public class IdentityService : IIdentityService
             UserName = user.UserName,
             Email = user.Email,
             VerificationToken = verificationToken.Token,
-            VerificationUrl = $"{_frontendBaseUrl}/confirm-email?token={verificationToken.Token}",
+            VerificationUrl = $"{_frontendBaseUrl}/verify-email?token={verificationToken.Token}",
             ExpiresAtUtc = verificationToken.ExpiresAtUtc
         }, cancellationToken);
 
@@ -485,7 +493,7 @@ public class IdentityService : IIdentityService
     {
         try
         {
-            var _ = new MailAddress(email);
+            _ = new MailAddress(email);
             return true;
         }
         catch

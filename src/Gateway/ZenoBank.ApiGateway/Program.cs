@@ -1,12 +1,12 @@
-using Yarp.ReverseProxy;
+﻿using Yarp.ReverseProxy;
 
 var builder = WebApplication.CreateBuilder(args);
 
-const string FrontendCorsPolicy = "FrontendCorsPolicy";
+const string CorsPolicy = "Frontend";
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(FrontendCorsPolicy, policy =>
+    options.AddPolicy(CorsPolicy, policy =>
     {
         policy
             .WithOrigins(
@@ -20,28 +20,26 @@ builder.Services.AddCors(options =>
                 "https://127.0.0.1:5173"
             )
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 builder.Services
     .AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 
-app.UseCors(FrontendCorsPolicy);
+app.UseCors(CorsPolicy);
 
 app.MapGet("/", () => Results.Ok(new
 {

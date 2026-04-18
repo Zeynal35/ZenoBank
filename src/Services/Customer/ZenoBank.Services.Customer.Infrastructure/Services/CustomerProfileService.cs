@@ -27,52 +27,65 @@ public class CustomerProfileService : ICustomerProfileService
 
     public async Task<Result<CustomerProfileDto>> CreateAsync(Guid userId, CreateCustomerProfileRequest request, CancellationToken cancellationToken = default)
     {
-        var errors = ValidateCreateOrUpdate(
-            request.FirstName,
-            request.LastName,
-            request.PhoneNumber,
-            request.Address,
-            request.DateOfBirth);
-
-        if (errors.Count > 0)
-            return Result<CustomerProfileDto>.Failure("Validation failed.", errors);
-
-        var age = CalculateAge(request.DateOfBirth);
-        if (age < 18)
-            return Result<CustomerProfileDto>.Failure("Customer must be at least 18 years old.");
-
-        var existingProfile = await _repository.GetByUserIdAsync(userId, cancellationToken);
-        if (existingProfile is not null)
-            return Result<CustomerProfileDto>.Failure("Customer profile already exists for this user.");
-
-        var profile = new CustomerProfile
+        try
         {
-            UserId = userId,
-            FirstName = request.FirstName.Trim(),
-            LastName = request.LastName.Trim(),
-            DateOfBirth = request.DateOfBirth,
-            PhoneNumber = request.PhoneNumber.Trim(),
-            Address = request.Address.Trim(),
-            Status = CustomerStatus.Active,
-            IsBlacklisted = false,
-            BlacklistReason = null,
-            RiskLevel = RiskLevel.Low
-        };
+            var errors = ValidateCreateOrUpdate(
+                request.FirstName,
+                request.LastName,
+                request.PhoneNumber,
+                request.Address,
+                request.DateOfBirth);
 
-        await _repository.AddAsync(profile, cancellationToken);
-        await _repository.SaveChangesAsync(cancellationToken);
+            if (errors.Count > 0)
+                return Result<CustomerProfileDto>.Failure("Validation failed.", errors);
 
-        await _auditLogger.WriteAsync(new CreateAuditLogRequest
+            var age = CalculateAge(request.DateOfBirth);
+            if (age < 18)
+                return Result<CustomerProfileDto>.Failure("Customer must be at least 18 years old.");
+
+            var existingProfile = await _repository.GetByUserIdAsync(userId, cancellationToken);
+            if (existingProfile is not null)
+                return Result<CustomerProfileDto>.Failure("Customer profile already exists for this user.");
+
+            var profile = new CustomerProfile
+            {
+                UserId = userId,
+                FirstName = request.FirstName.Trim(),
+                LastName = request.LastName.Trim(),
+                DateOfBirth = request.DateOfBirth,
+                PhoneNumber = request.PhoneNumber.Trim(),
+                Address = request.Address.Trim(),
+                Status = CustomerStatus.Active,
+                IsBlacklisted = false,
+                BlacklistReason = null,
+                RiskLevel = RiskLevel.Low
+            };
+
+            await _repository.AddAsync(profile, cancellationToken);
+            await _repository.SaveChangesAsync(cancellationToken);
+
+            try
+            {
+                await _auditLogger.WriteAsync(new CreateAuditLogRequest
+                {
+                    UserId = userId,
+                    Action = "CustomerProfileCreated",
+                    EntityType = "CustomerProfile",
+                    EntityId = profile.Id.ToString(),
+                    Description = $"Customer profile created for user {userId}.",
+                    Status = "Success"
+                }, cancellationToken);
+            }
+            catch
+            {
+            }
+
+            return Result<CustomerProfileDto>.Success(Map(profile), "Customer profile created successfully.");
+        }
+        catch (Exception ex)
         {
-            UserId = userId,
-            Action = "CustomerProfileCreated",
-            EntityType = "CustomerProfile",
-            EntityId = profile.Id.ToString(),
-            Description = $"Customer profile created for user {userId}.",
-            Status = "Success"
-        }, cancellationToken);
-
-        return Result<CustomerProfileDto>.Success(Map(profile), "Customer profile created successfully.");
+            return Result<CustomerProfileDto>.Failure($"Customer profile creation failed: {ex.Message}");
+        }
     }
 
     public async Task<Result<CustomerProfileDto>> GetMyProfileAsync(Guid userId, CancellationToken cancellationToken = default)
