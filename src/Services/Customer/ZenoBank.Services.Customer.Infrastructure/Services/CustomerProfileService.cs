@@ -307,6 +307,7 @@ public class CustomerProfileService : ICustomerProfileService
         return Result<CustomerProfileDto>.Success(Map(profile), "Customer status updated successfully.");
     }
 
+    // ✅ ProfileCompleted əlavə edildi - frontend OnboardingGuard buna baxır
     private static CustomerProfileDto Map(CustomerProfile profile)
     {
         return new CustomerProfileDto
@@ -322,7 +323,8 @@ public class CustomerProfileService : ICustomerProfileService
             IsBlacklisted = profile.IsBlacklisted,
             BlacklistReason = profile.BlacklistReason,
             RiskLevel = profile.RiskLevel.ToString(),
-            Age = CalculateAge(profile.DateOfBirth)
+            Age = CalculateAge(profile.DateOfBirth),
+            ProfileCompleted = true  // ✅ Profile varsa, tamamlanmış deməkdir
         };
     }
 

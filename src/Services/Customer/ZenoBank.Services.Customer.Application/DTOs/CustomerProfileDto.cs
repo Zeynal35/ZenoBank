@@ -21,4 +21,7 @@ public class CustomerProfileDto
     public string RiskLevel { get; set; } = string.Empty;
 
     public int Age { get; set; }
+
+    // ✅ Frontend OnboardingGuard buna baxır - olmadan həmişə onboarding-ə yönləndirirdi
+    public bool ProfileCompleted { get; set; }
 }

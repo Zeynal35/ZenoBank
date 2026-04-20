@@ -16,7 +16,17 @@ public static class ServiceRegistration
     {
         services.AddDbContext<CustomerDbContext>(options =>
         {
-            options.UseSqlServer(configuration.GetConnectionString("DefaultConnection"));
+            options.UseSqlServer(
+                configuration.GetConnectionString("DefaultConnection"),
+                sqlOptions =>
+                {
+                    // ✅ Transient error resiliency - bu olmadan 500 error verirdi
+                    sqlOptions.EnableRetryOnFailure(
+                        maxRetryCount: 5,
+                        maxRetryDelay: TimeSpan.FromSeconds(10),
+                        errorNumbersToAdd: null
+                    );
+                });
         });
 
         services.AddHttpContextAccessor();
