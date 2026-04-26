@@ -13,9 +13,7 @@ public class TransactionsController : ControllerBase
     private readonly ITransactionService _transactionService;
     private readonly ICurrentUserService _currentUserService;
 
-    public TransactionsController(
-        ITransactionService transactionService,
-        ICurrentUserService currentUserService)
+    public TransactionsController(ITransactionService transactionService, ICurrentUserService currentUserService)
     {
         _transactionService = transactionService;
         _currentUserService = currentUserService;
@@ -26,32 +24,13 @@ public class TransactionsController : ControllerBase
     public async Task<IActionResult> Deposit([FromBody] DepositRequest request, CancellationToken cancellationToken)
     {
         if (_currentUserService.UserId is null)
-        {
-            return Unauthorized(new ApiResponse<object>
-            {
-                Success = false,
-                Message = "User is not authenticated."
-            });
-        }
+            return Unauthorized(new ApiResponse<object> { Success = false, Message = "User is not authenticated." });
 
         var result = await _transactionService.DepositAsync(_currentUserService.UserId.Value, request, cancellationToken);
-
         if (result.IsFailure)
-        {
-            return BadRequest(new ApiResponse<object>
-            {
-                Success = false,
-                Message = result.Message,
-                Errors = result.Errors
-            });
-        }
+            return BadRequest(new ApiResponse<object> { Success = false, Message = result.Message, Errors = result.Errors });
 
-        return Ok(new ApiResponse<object>
-        {
-            Success = true,
-            Message = result.Message,
-            Data = result.Data
-        });
+        return Ok(new ApiResponse<object> { Success = true, Message = result.Message, Data = result.Data });
     }
 
     [Authorize]
@@ -59,32 +38,13 @@ public class TransactionsController : ControllerBase
     public async Task<IActionResult> Withdraw([FromBody] WithdrawRequest request, CancellationToken cancellationToken)
     {
         if (_currentUserService.UserId is null)
-        {
-            return Unauthorized(new ApiResponse<object>
-            {
-                Success = false,
-                Message = "User is not authenticated."
-            });
-        }
+            return Unauthorized(new ApiResponse<object> { Success = false, Message = "User is not authenticated." });
 
         var result = await _transactionService.WithdrawAsync(_currentUserService.UserId.Value, request, cancellationToken);
-
         if (result.IsFailure)
-        {
-            return BadRequest(new ApiResponse<object>
-            {
-                Success = false,
-                Message = result.Message,
-                Errors = result.Errors
-            });
-        }
+            return BadRequest(new ApiResponse<object> { Success = false, Message = result.Message, Errors = result.Errors });
 
-        return Ok(new ApiResponse<object>
-        {
-            Success = true,
-            Message = result.Message,
-            Data = result.Data
-        });
+        return Ok(new ApiResponse<object> { Success = true, Message = result.Message, Data = result.Data });
     }
 
     [Authorize]
@@ -92,32 +52,13 @@ public class TransactionsController : ControllerBase
     public async Task<IActionResult> Transfer([FromBody] TransferRequest request, CancellationToken cancellationToken)
     {
         if (_currentUserService.UserId is null)
-        {
-            return Unauthorized(new ApiResponse<object>
-            {
-                Success = false,
-                Message = "User is not authenticated."
-            });
-        }
+            return Unauthorized(new ApiResponse<object> { Success = false, Message = "User is not authenticated." });
 
         var result = await _transactionService.TransferAsync(_currentUserService.UserId.Value, request, cancellationToken);
-
         if (result.IsFailure)
-        {
-            return BadRequest(new ApiResponse<object>
-            {
-                Success = false,
-                Message = result.Message,
-                Errors = result.Errors
-            });
-        }
+            return BadRequest(new ApiResponse<object> { Success = false, Message = result.Message, Errors = result.Errors });
 
-        return Ok(new ApiResponse<object>
-        {
-            Success = true,
-            Message = result.Message,
-            Data = result.Data
-        });
+        return Ok(new ApiResponse<object> { Success = true, Message = result.Message, Data = result.Data });
     }
 
     [Authorize]
@@ -125,22 +66,10 @@ public class TransactionsController : ControllerBase
     public async Task<IActionResult> GetMyTransactions(CancellationToken cancellationToken)
     {
         if (_currentUserService.UserId is null)
-        {
-            return Unauthorized(new ApiResponse<object>
-            {
-                Success = false,
-                Message = "User is not authenticated."
-            });
-        }
+            return Unauthorized(new ApiResponse<object> { Success = false, Message = "User is not authenticated." });
 
         var result = await _transactionService.GetMyTransactionsAsync(_currentUserService.UserId.Value, cancellationToken);
-
-        return Ok(new ApiResponse<object>
-        {
-            Success = true,
-            Message = result.Message,
-            Data = result.Data
-        });
+        return Ok(new ApiResponse<object> { Success = true, Message = result.Message, Data = result.Data });
     }
 
     [Authorize]
@@ -148,32 +77,32 @@ public class TransactionsController : ControllerBase
     public async Task<IActionResult> GetMyTransactionById(Guid id, CancellationToken cancellationToken)
     {
         if (_currentUserService.UserId is null)
-        {
-            return Unauthorized(new ApiResponse<object>
-            {
-                Success = false,
-                Message = "User is not authenticated."
-            });
-        }
+            return Unauthorized(new ApiResponse<object> { Success = false, Message = "User is not authenticated." });
 
         var result = await _transactionService.GetMyTransactionByIdAsync(_currentUserService.UserId.Value, id, cancellationToken);
-
         if (result.IsFailure)
-        {
-            return BadRequest(new ApiResponse<object>
-            {
-                Success = false,
-                Message = result.Message,
-                Errors = result.Errors
-            });
-        }
+            return BadRequest(new ApiResponse<object> { Success = false, Message = result.Message, Errors = result.Errors });
 
-        return Ok(new ApiResponse<object>
-        {
-            Success = true,
-            Message = result.Message,
-            Data = result.Data
-        });
+        return Ok(new ApiResponse<object> { Success = true, Message = result.Message, Data = result.Data });
+    }
+
+    [Authorize]
+    [HttpGet("my/analytics")]
+    public async Task<IActionResult> GetMyAnalytics(CancellationToken cancellationToken)
+    {
+        if (_currentUserService.UserId is null)
+            return Unauthorized(new ApiResponse<object> { Success = false, Message = "User is not authenticated." });
+
+        var result = await _transactionService.GetMyAnalyticsAsync(_currentUserService.UserId.Value, cancellationToken);
+        return Ok(new ApiResponse<object> { Success = true, Message = result.Message, Data = result.Data });
+    }
+
+    [Authorize(Roles = "SuperAdmin,Admin,Operator")]
+    [HttpGet("analytics")]
+    public async Task<IActionResult> GetAllAnalytics(CancellationToken cancellationToken)
+    {
+        var result = await _transactionService.GetAllAnalyticsAsync(cancellationToken);
+        return Ok(new ApiResponse<object> { Success = true, Message = result.Message, Data = result.Data });
     }
 
     [Authorize(Roles = "SuperAdmin,Admin,Operator")]
@@ -181,13 +110,7 @@ public class TransactionsController : ControllerBase
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
         var result = await _transactionService.GetAllAsync(cancellationToken);
-
-        return Ok(new ApiResponse<object>
-        {
-            Success = true,
-            Message = result.Message,
-            Data = result.Data
-        });
+        return Ok(new ApiResponse<object> { Success = true, Message = result.Message, Data = result.Data });
     }
 
     [Authorize(Roles = "SuperAdmin,Admin,Operator")]
@@ -195,22 +118,9 @@ public class TransactionsController : ControllerBase
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {
         var result = await _transactionService.GetByIdAsync(id, cancellationToken);
-
         if (result.IsFailure)
-        {
-            return NotFound(new ApiResponse<object>
-            {
-                Success = false,
-                Message = result.Message,
-                Errors = result.Errors
-            });
-        }
+            return NotFound(new ApiResponse<object> { Success = false, Message = result.Message, Errors = result.Errors });
 
-        return Ok(new ApiResponse<object>
-        {
-            Success = true,
-            Message = result.Message,
-            Data = result.Data
-        });
+        return Ok(new ApiResponse<object> { Success = true, Message = result.Message, Data = result.Data });
     }
 }

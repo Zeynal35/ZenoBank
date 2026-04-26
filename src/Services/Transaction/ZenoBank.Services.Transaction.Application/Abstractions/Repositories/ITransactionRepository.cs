@@ -10,4 +10,13 @@ public interface ITransactionRepository
     Task<List<TransactionRecord>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<List<TransactionRecord>> GetAllAsync(CancellationToken cancellationToken = default);
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    Task<List<TransactionRecord>> GetByUserIdSinceAsync(
+        Guid userId,
+        DateTime since,
+        CancellationToken cancellationToken = default);
+
+    Task<List<TransactionRecord>> GetAllSinceAsync(
+        DateTime since,
+        CancellationToken cancellationToken = default);
 }

@@ -48,4 +48,25 @@ public class TransactionRepository : ITransactionRepository
     {
         await _context.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task<List<TransactionRecord>> GetByUserIdSinceAsync(
+        Guid userId,
+        DateTime since,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Transactions
+            .Where(x => x.UserId == userId && x.CreatedAtUtc >= since)
+            .OrderBy(x => x.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<TransactionRecord>> GetAllSinceAsync(
+        DateTime since,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Transactions
+            .Where(x => x.CreatedAtUtc >= since)
+            .OrderBy(x => x.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+    }
 }

@@ -14,4 +14,7 @@ public interface ITransactionService
 
     Task<Result<List<TransactionRecordDto>>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<Result<TransactionRecordDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<Result<DashboardAnalyticsDto>> GetMyAnalyticsAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<Result<DashboardAnalyticsDto>> GetAllAnalyticsAsync(CancellationToken cancellationToken = default);
 }
