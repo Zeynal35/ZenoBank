@@ -38,7 +38,14 @@ public class TransactionEventsConsumer : BackgroundService
 
     public override Task StartAsync(CancellationToken cancellationToken)
     {
-        _channel = _connection.GetConnection().CreateModel();
+        var connection = _connection.TryGetConnection();
+        if (connection is null)
+        {
+            _logger.LogWarning("RabbitMQ unavailable. TransactionEventsConsumer will not start.");
+            return Task.CompletedTask;
+        }
+
+        _channel = connection.CreateModel();
 
         _channel.QueueDeclare(
             queue: _settings.QueueName,

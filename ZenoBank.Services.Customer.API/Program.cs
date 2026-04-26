@@ -10,7 +10,6 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// ✅ CORS - Frontend-dən gələn requestlərə icazə verir
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -27,10 +26,8 @@ builder.Services.AddCors(options =>
     });
 });
 
-// ✅ Customer Module DI - olmadan 500 error verirdi
 builder.Services.AddCustomerModule(builder.Configuration);
 
-// 🔥 JWT CONFIG
 var jwt = builder.Configuration.GetSection("Jwt");
 var key = Encoding.UTF8.GetBytes(jwt["Key"]!);
 
@@ -57,19 +54,13 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection(); // ← şərh edildi
 
-// ✅ CORS middleware - UseAuthentication-dan ƏVVƏL olmalıdır
 app.UseCors("AllowFrontend");
-
-// ✅ Global exception handler
 app.UseMiddleware<GlobalExceptionMiddleware>();
-
-app.UseAuthentication(); // 🔥 ÇOX VACİB
+app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.UseSwagger();
 app.UseSwaggerUI();
 
