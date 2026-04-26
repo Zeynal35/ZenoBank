@@ -27,12 +27,10 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddAccountModule(builder.Configuration);
-
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// ✅ JWT Authentication — olmadan token oxunmur, UserId null gəlir → 500 error
 var jwt = builder.Configuration.GetSection("Jwt");
 var key = Encoding.UTF8.GetBytes(jwt["Key"]!);
 
@@ -67,11 +65,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
-app.UseCors(FrontendCorsPolicy);
-app.UseAuthentication();  // ✅
-app.UseAuthorization();
+// app.UseHttpsRedirection(); // ← şərh edildi
 
+app.UseCors(FrontendCorsPolicy);
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
