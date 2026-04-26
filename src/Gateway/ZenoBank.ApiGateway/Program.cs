@@ -20,8 +20,9 @@ builder.Services.AddCors(options =>
                 "https://127.0.0.1:5173"
             )
             .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
+            .AllowAnyMethod();
+        // ✅ AllowCredentials() silindi — axios withCredentials:false olduğu üçün
+        // AllowCredentials + withCredentials:false birlikdə CORS xətasına səbəb olur
     });
 });
 
@@ -37,7 +38,8 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.UseHttpsRedirection();
+// ✅ HTTPS redirect silindi — development-də SSL sertifikat xətasının qarşısını alır
+// app.UseHttpsRedirection();
 
 app.UseCors(CorsPolicy);
 
