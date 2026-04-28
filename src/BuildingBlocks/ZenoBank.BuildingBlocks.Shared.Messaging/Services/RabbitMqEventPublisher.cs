@@ -2,6 +2,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using RabbitMQ.Client;
 using ZenoBank.BuildingBlocks.Shared.Contracts.Events;
 using ZenoBank.BuildingBlocks.Shared.Messaging.Abstractions;
 using ZenoBank.BuildingBlocks.Shared.Messaging.Configurations;
@@ -10,8 +11,9 @@ namespace ZenoBank.BuildingBlocks.Shared.Messaging.Services;
 
 public class RabbitMqEventPublisher : IEventPublisher
 {
+    private const string ExchangeName = "zenobank.events";
+
     private readonly RabbitMqConnection _connection;
-    private readonly RabbitMqSettings _settings;
     private readonly ILogger<RabbitMqEventPublisher> _logger;
 
     public RabbitMqEventPublisher(
@@ -20,7 +22,6 @@ public class RabbitMqEventPublisher : IEventPublisher
         ILogger<RabbitMqEventPublisher> logger)
     {
         _connection = connection;
-        _settings = settings.Value;
         _logger = logger;
     }
 
@@ -29,46 +30,50 @@ public class RabbitMqEventPublisher : IEventPublisher
     {
         try
         {
-            // ✅ RabbitMQ yoxdursa, xəta vermirik - sadəcə log yazırıq
-            var conn = _connection.TryGetConnection();
-            if (conn is null)
+            var connection = _connection.TryGetConnection();
+
+            if (connection is null)
             {
-                _logger.LogWarning("RabbitMQ unavailable. Skipping event: {EventType}", typeof(TEvent).Name);
+                _logger.LogWarning("RabbitMQ unavailable. Event not published: {EventType}", typeof(TEvent).Name);
                 return Task.CompletedTask;
             }
 
-            using var channel = conn.CreateModel();
+            using var channel = connection.CreateModel();
 
-            channel.QueueDeclare(
-                queue: _settings.QueueName,
+            channel.ExchangeDeclare(
+                exchange: ExchangeName,
+                type: ExchangeType.Direct,
                 durable: true,
-                exclusive: false,
                 autoDelete: false,
                 arguments: null);
 
+            var eventType = typeof(TEvent).Name;
             var json = JsonSerializer.Serialize(@event);
             var body = Encoding.UTF8.GetBytes(json);
 
             var properties = channel.CreateBasicProperties();
             properties.Persistent = true;
+            properties.ContentType = "application/json";
             properties.Headers = new Dictionary<string, object>
             {
-                { "event-type", typeof(TEvent).Name }
+                ["event-type"] = eventType
             };
 
             channel.BasicPublish(
-                exchange: "",
-                routingKey: _settings.QueueName,
+                exchange: ExchangeName,
+                routingKey: eventType,
                 mandatory: false,
                 basicProperties: properties,
-                body: new ReadOnlyMemory<byte>(body));
+                body: body);
 
-            _logger.LogInformation("Event published: {EventType}", typeof(TEvent).Name);
+            _logger.LogInformation(
+                "RabbitMQ event published. Exchange: {Exchange}, RoutingKey: {RoutingKey}",
+                ExchangeName,
+                eventType);
         }
         catch (Exception ex)
         {
-            // ✅ RabbitMQ xətası login/register-i bloklamamalıdır
-            _logger.LogWarning("Failed to publish event {EventType}: {Message}", typeof(TEvent).Name, ex.Message);
+            _logger.LogError(ex, "Failed to publish RabbitMQ event: {EventType}", typeof(TEvent).Name);
         }
 
         return Task.CompletedTask;
