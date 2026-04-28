@@ -94,6 +94,12 @@ public class TransactionEventsConsumer : BackgroundService
                 routingKey: eventType);
         }
 
+        // EmailVerificationRequestedEvent üçün öz queue-sunu da exchange-ə bind et
+        _channel.QueueBind(
+            queue: EmailVerificationQueueName,
+            exchange: ExchangeName,
+            routingKey: nameof(EmailVerificationRequestedEvent));
+
         _channel.BasicQos(0, 1, false);
 
         _logger.LogInformation(
