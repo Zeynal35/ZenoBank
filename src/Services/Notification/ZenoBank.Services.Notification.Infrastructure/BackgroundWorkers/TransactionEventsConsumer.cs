@@ -213,14 +213,15 @@ public class TransactionEventsConsumer : BackgroundService
                             if (@event is null) break;
                             directEmail = @event.Email;
                             directUserName = @event.UserName;
-                            emailSubject = "ZenoBank - Verify your email";
+                            emailSubject = "ZenoBank - Your verification code";
                             emailBody = BuildEmailHtml(
                                 "Verify your email",
                                 $"Hello {@event.UserName},<br/><br/>" +
-                                $"Please verify your email address by clicking the button below:<br/><br/>" +
-                                $"<a href=\"{@event.VerificationUrl}\" style=\"background:#1a56db;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;\">Verify Email</a><br/><br/>" +
-                                $"Or copy this link: <code>{@event.VerificationUrl}</code><br/><br/>" +
-                                $"This link expires at: {@event.ExpiresAtUtc:u}");
+                                $"Your ZenoBank email verification code is:<br/><br/>" +
+                                $"<div style=\"font-size:36px;font-weight:bold;letter-spacing:12px;color:#1a56db;padding:16px 0;\">{@event.VerificationToken}</div><br/>" +
+                                $"Enter this 6-digit code on the verification page.<br/><br/>" +
+                                $"<b>This code expires in 15 minutes.</b><br/><br/>" +
+                                $"If you did not register for ZenoBank, please ignore this email.");
                             createInAppNotification = false;
                             break;
                         }

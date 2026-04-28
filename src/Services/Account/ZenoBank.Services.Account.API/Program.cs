@@ -1,8 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using ZenoBank.Services.Account.API.Extensions;
 using ZenoBank.Services.Account.API.Middlewares;
+using ZenoBank.Services.Account.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -71,5 +73,12 @@ app.UseCors(FrontendCorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// ✅ Migration avtomatik işlədir — cədvəllər yaranır
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AccountDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
 
 app.Run();

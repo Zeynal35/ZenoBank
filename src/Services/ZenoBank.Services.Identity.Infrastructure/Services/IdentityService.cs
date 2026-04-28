@@ -1,4 +1,5 @@
 ﻿using System.Net.Mail;
+using System.Security.Cryptography;
 using Microsoft.Extensions.Configuration;
 using ZenoBank.BuildingBlocks.Shared.Common.Abstractions;
 using ZenoBank.BuildingBlocks.Shared.Common.DTOs;
@@ -45,6 +46,16 @@ public class IdentityService : IIdentityService
         _auditLogger = auditLogger;
         _eventPublisher = eventPublisher;
         _frontendBaseUrl = configuration["Frontend:BaseUrl"] ?? "http://localhost:3001";
+    }
+
+    // ── 6 rəqəmli kriptografik kod generasiyası ──────────────────────────────
+    private static string GenerateOtpCode()
+    {
+        // RandomNumberGenerator ilə kriptografik təhlükəsiz 6 rəqəmli kod
+        var bytes = new byte[4];
+        RandomNumberGenerator.Fill(bytes);
+        var number = BitConverter.ToUInt32(bytes, 0) % 1_000_000;
+        return number.ToString("D6"); // həmişə 6 rəqəm, məs: 047823
     }
 
     public async Task<Result<UserDto>> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
@@ -104,11 +115,14 @@ public class IdentityService : IIdentityService
         await _userRepository.AddAsync(user, cancellationToken);
         await _userRepository.SaveChangesAsync(cancellationToken);
 
+        // ── 6 rəqəmli OTP kodu yarat ─────────────────────────────────────────
+        var otpCode = GenerateOtpCode();
+
         var verificationToken = new EmailVerificationToken
         {
             UserId = user.Id,
-            Token = Guid.NewGuid().ToString("N"),
-            ExpiresAtUtc = DateTime.UtcNow.AddHours(24),
+            Token = otpCode,
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(15), // 15 dəqiqə etibarlıdır
             IsUsed = false
         };
 
@@ -130,8 +144,8 @@ public class IdentityService : IIdentityService
             UserId = user.Id,
             UserName = user.UserName,
             Email = user.Email,
-            VerificationToken = verificationToken.Token,
-            VerificationUrl = $"{_frontendBaseUrl}/verify-email?token={verificationToken.Token}",
+            VerificationToken = otpCode,
+            VerificationUrl = $"{_frontendBaseUrl}/verify-email?email={Uri.EscapeDataString(user.Email)}",
             ExpiresAtUtc = verificationToken.ExpiresAtUtc
         }, cancellationToken);
 
@@ -144,7 +158,7 @@ public class IdentityService : IIdentityService
             Roles = user.UserRoles.Select(x => x.Role.Name).ToList()
         };
 
-        return Result<UserDto>.Success(userDto, "User registered successfully. Please verify your email before login.");
+        return Result<UserDto>.Success(userDto, "User registered successfully. Please check your email for the 6-digit verification code.");
     }
 
     public async Task<Result<AuthResponse>> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
@@ -398,17 +412,17 @@ public class IdentityService : IIdentityService
     public async Task<Result> ConfirmEmailAsync(string token, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(token))
-            return Result.Failure("Verification token is required.");
+            return Result.Failure("Verification code is required.");
 
-        var verificationToken = await _emailVerificationTokenRepository.GetByTokenAsync(token, cancellationToken);
+        var verificationToken = await _emailVerificationTokenRepository.GetByTokenAsync(token.Trim(), cancellationToken);
         if (verificationToken is null)
-            return Result.Failure("Verification token is invalid.");
+            return Result.Failure("Verification code is invalid.");
 
         if (verificationToken.IsUsed)
-            return Result.Failure("Verification token has already been used.");
+            return Result.Failure("Verification code has already been used.");
 
         if (verificationToken.ExpiresAtUtc <= DateTime.UtcNow)
-            return Result.Failure("Verification token has expired.");
+            return Result.Failure("Verification code has expired.");
 
         verificationToken.IsUsed = true;
         _emailVerificationTokenRepository.Update(verificationToken);
@@ -449,27 +463,23 @@ public class IdentityService : IIdentityService
         if (user.EmailConfirmed)
             return Result.Failure("Email is already confirmed.");
 
+        // Köhnə aktiv tokeni istifadəsiz et
         var latestToken = await _emailVerificationTokenRepository.GetLatestActiveByUserIdAsync(user.Id, cancellationToken);
         if (latestToken is not null)
         {
-            await _eventPublisher.PublishAsync(new EmailVerificationRequestedEvent
-            {
-                UserId = user.Id,
-                UserName = user.UserName,
-                Email = user.Email,
-                VerificationToken = latestToken.Token,
-                VerificationUrl = $"{_frontendBaseUrl}/verify-email?token={latestToken.Token}",
-                ExpiresAtUtc = latestToken.ExpiresAtUtc
-            }, cancellationToken);
-
-            return Result.Success("Verification email resent successfully.");
+            latestToken.IsUsed = true;
+            _emailVerificationTokenRepository.Update(latestToken);
+            await _emailVerificationTokenRepository.SaveChangesAsync(cancellationToken);
         }
+
+        // Yeni 6 rəqəmli kod yarat
+        var otpCode = GenerateOtpCode();
 
         var verificationToken = new EmailVerificationToken
         {
             UserId = user.Id,
-            Token = Guid.NewGuid().ToString("N"),
-            ExpiresAtUtc = DateTime.UtcNow.AddHours(24),
+            Token = otpCode,
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(15),
             IsUsed = false
         };
 
@@ -481,8 +491,8 @@ public class IdentityService : IIdentityService
             UserId = user.Id,
             UserName = user.UserName,
             Email = user.Email,
-            VerificationToken = verificationToken.Token,
-            VerificationUrl = $"{_frontendBaseUrl}/verify-email?token={verificationToken.Token}",
+            VerificationToken = otpCode,
+            VerificationUrl = $"{_frontendBaseUrl}/verify-email?email={Uri.EscapeDataString(user.Email)}",
             ExpiresAtUtc = verificationToken.ExpiresAtUtc
         }, cancellationToken);
 

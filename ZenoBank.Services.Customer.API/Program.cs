@@ -1,8 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using ZenoBank.Services.Customer.API.Extensions;
 using ZenoBank.Services.Customer.API.Middlewares;
+using ZenoBank.Services.Customer.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,7 +21,9 @@ builder.Services.AddCors(options =>
                 "http://localhost:3001",
                 "https://localhost:3001",
                 "http://localhost:3000",
-                "https://localhost:3000"
+                "https://localhost:3000",
+                "http://localhost:5173",
+                "https://localhost:5173"
             )
             .AllowAnyHeader()
             .AllowAnyMethod();
@@ -63,5 +67,12 @@ app.UseAuthorization();
 app.MapControllers();
 app.UseSwagger();
 app.UseSwaggerUI();
+
+// ✅ Migration avtomatik işlədir — cədvəllər yaranır
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<CustomerDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
 
 app.Run();
